@@ -2,18 +2,18 @@
 // Every part is built along its own +Y axis; the assembly lies along Y from the
 // tail (y = 0) to the front of the head (y = LENGTH). One unit = 1 cm.
 import * as THREE from 'three';
-import { knurlTexture, batteryLabelTexture } from './textures.js';
+import { knurlTexture, batteryLabelTexture, brushedTexture, engravingTexture } from './textures.js';
 
 export const LENGTH = 21.8;
 const SEG = 72;
 
 const std = (o) => new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, ...o });
 const MAT = {
-  anodized: () => std({ color: 0xc94f1c, metalness: 0.78, roughness: 0.33 }),
+  anodized: () => std({ color: 0xc94f1c, metalness: 0.78, roughness: 0.42, roughnessMap: brushedTexture() }),
   knurled: () => {
     const bump = knurlTexture();
-    bump.repeat.set(30, 7);
-    return std({ color: 0xb9461a, metalness: 0.78, roughness: 0.42, bumpMap: bump, bumpScale: 2.5 });
+    bump.repeat.set(26, 6);
+    return std({ color: 0xb9461a, metalness: 0.78, roughness: 0.42, bumpMap: bump, bumpScale: 1.4 });
   },
   bareAlu: () => std({ color: 0xbfc3c9, metalness: 1, roughness: 0.3 }),
   chrome: () => std({ color: 0xf5f5f5, metalness: 1, roughness: 0.08 }),
@@ -120,6 +120,7 @@ function buildSwitch() {
   dome.scale.set(1, 0.62, 1);
   dome.position.y = 0.3;
   g.add(boss, collar, dome);
+  g.userData.dome = dome;
   return tag(g, 'switch');
 }
 
@@ -143,6 +144,16 @@ function buildBody() {
   g.add(helix(1.445, 16.55, 17.85, 7, 0.035, alu));
   const rubber = MAT.rubber();
   g.add(ring(1.47, 2.48, 0.07, rubber), ring(1.47, 16.45, 0.07, rubber));
+
+  // Etched maker's mark on the side facing the viewer, between the grip and the switch.
+  const etch = mesh(
+    new THREE.CylinderGeometry(1.603, 1.603, 1.7, 24, 1, true, THREE.MathUtils.degToRad(-62), THREE.MathUtils.degToRad(54)),
+    std({ map: engravingTexture(), transparent: true, metalness: 0.6, roughness: 0.55, side: THREE.FrontSide,
+      polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }),
+  );
+  etch.position.y = 12.95;
+  etch.castShadow = false;
+  g.add(etch);
 
   const sw = buildSwitch();
   sw.rotation.z = Math.PI / 2; // dome points along -X, which is "up" once the light lies flat
@@ -189,6 +200,7 @@ function buildBulb() {
   ], MAT.glass());
   glass.castShadow = false;
   g.add(glass);
+  g.userData.glass = glass;
 
   // filament: two support wires and a tungsten coil
   const wire = MAT.steel();
@@ -236,7 +248,9 @@ function buildHead() {
     const r = r0 + (r1 - r0) * (i / 24);
     refl.push([r, y0 + ((r * r - r0 * r0) / (r1 * r1 - r0 * r0)) * (y1 - y0)]);
   }
-  g.add(lathe(refl, MAT.mirror()));
+  const reflector = lathe(refl, MAT.mirror());
+  g.add(reflector);
+  g.userData.reflector = reflector;
   const floor = mesh(new THREE.RingGeometry(r0, 1.48, SEG), MAT.anodized());
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = y0;

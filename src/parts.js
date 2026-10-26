@@ -73,3 +73,35 @@ export const PARTS = {
 export const LIST_ORDER = ['tailcap', 'spring', 'battery2', 'battery1', 'body', 'switch', 'bulb', 'head', 'lens'];
 export const TAKE_APART_ORDER = ['tailcap', 'battery2', 'battery1', 'head', 'bulb', 'lens'];
 export const MOVABLE = TAKE_APART_ORDER;
+
+// Guided build: assembling the flashlight from a bare tube, in the only order that works.
+export const GUIDE = [
+  {
+    id: 'lens', title: 'Fit the lens into the head', action: 'Fit the lens',
+    tip: 'The lens sits behind the chrome bezel ring. Seat it flat so it seals against dust and rain.',
+  },
+  {
+    id: 'bulb', title: 'Screw the bulb into its socket', action: 'Screw in the bulb',
+    tip: 'Finger-tight is enough. The glass is thin, and the brass base only needs to touch its contact.',
+  },
+  {
+    id: 'head', title: 'Screw the head onto the front', action: 'Screw on the head',
+    tip: 'Start the threads straight. If it fights you, back it off and try again rather than forcing it.',
+  },
+  {
+    id: 'battery1', title: 'Slide in Battery 1, + end first', action: 'Insert Battery 1',
+    tip: 'It goes in through the back and slides all the way down. Its + bump has to touch the bottom of the bulb.',
+  },
+  {
+    id: 'battery2', title: 'Slide in Battery 2, + end first', action: 'Insert Battery 2',
+    tip: 'Its + bump presses on the flat − end of Battery 1. Two cells in a row add up: 1.5 V + 1.5 V = 3 V.',
+  },
+  {
+    id: 'tailcap', title: 'Screw on the tail cap', action: 'Screw on the tail cap',
+    tip: 'The spring squeezes both batteries forward so every contact presses tight. That closes the circuit.',
+  },
+  {
+    id: 'switch', title: 'Click the switch to test it', action: 'Click the switch',
+    tip: 'If every connection is good, current flows from the batteries, through the bulb’s filament, and back. It should glow.',
+  },
+];

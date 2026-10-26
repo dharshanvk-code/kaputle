@@ -18,7 +18,11 @@
       <span class="tag">Workbench</span>
     </div>
     <div class="top-actions">
-      <button type="button" class="btn primary" id="apartBtn">Take it all apart</button>
+      <button type="button" class="btn icon-btn" id="soundBtn" aria-pressed="false">
+        <svg class="ico-on" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 8h3l4-3.5v11L6 12H3z" fill="currentColor"/><path d="M13 7.2a4 4 0 0 1 0 5.6M15.2 5a7 7 0 0 1 0 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <svg class="ico-off" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 8h3l4-3.5v11L6 12H3z" fill="currentColor"/><path d="M13.5 7.5l5 5M18.5 7.5l-5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <span class="label">Sound off</span>
+      </button>
       <button type="button" class="btn" id="resetViewBtn">Reset view</button>
     </div>
   </header>
@@ -44,6 +48,11 @@
         <div class="meter">
           <div class="meter-bar"><span id="progressFill"></span></div>
           <span id="progressText">0 of 6 parts out</span>
+        </div>
+        <div class="job-actions">
+          <button type="button" class="btn power" id="powerBtn" aria-pressed="false"><span class="led" aria-hidden="true"></span><span class="label">Switch on</span></button>
+          <button type="button" class="btn primary" id="guideBtn">Guided build</button>
+          <button type="button" class="btn" id="apartBtn">Take it all apart</button>
         </div>
       </section>
 

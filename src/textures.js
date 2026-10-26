@@ -105,13 +105,15 @@ export function pegboardTexture() {
   return toTexture(c, { repeat: [1, 1] });
 }
 
-// Diamond knurl pattern used as a bump map on the grip.
+// Diamond knurl pattern used as a bump map on the grip. The grooves are blurred so the
+// bump map has soft slopes; hard edges shimmer (moiré) when the grip is seen from a distance.
 export function knurlTexture() {
   const [c, g] = makeCanvas(128, 128);
   g.fillStyle = '#fff';
   g.fillRect(0, 0, 128, 128);
+  g.filter = 'blur(2.5px)';
   g.strokeStyle = '#000';
-  g.lineWidth = 7;
+  g.lineWidth = 9;
   for (let k = -128; k <= 256; k += 32) {
     g.beginPath(); g.moveTo(k, 0); g.lineTo(k + 128, 128); g.stroke();
     g.beginPath(); g.moveTo(k, 128); g.lineTo(k + 128, 0); g.stroke();
@@ -154,5 +156,45 @@ export function batteryLabelTexture() {
   drawLabel(W / 2);
   drawLabel(0);
   drawLabel(W);
+  return toTexture(c);
+}
+
+// Fine circumferential lathe marks, used as a roughness map on the anodised parts.
+export function brushedTexture() {
+  const [c, g] = makeCanvas(64, 512);
+  for (let y = 0; y < 512; y++) {
+    const v = 185 + Math.random() * 55;
+    g.fillStyle = `rgb(${v},${v},${v})`;
+    g.fillRect(0, y, 64, 1);
+  }
+  return toTexture(c, { srgb: false, repeat: [1, 1] });
+}
+
+// Laser-etched maker's mark. Canvas y runs along the tube, so the text is drawn rotated.
+export function engravingTexture() {
+  const [c, g] = makeCanvas(512, 512);
+  g.translate(256, 256);
+  g.rotate(-Math.PI / 2);
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillStyle = 'rgba(238,236,232,0.92)';
+  g.font = '800 104px "Bricolage Grotesque", "Arial Black", sans-serif';
+  g.fillText('KAPUTLE', 0, -40);
+  g.font = '600 46px "IBM Plex Mono", ui-monospace, monospace';
+  g.fillStyle = 'rgba(238,236,232,0.75)';
+  g.fillText('2-CELL · 3 V', 0, 60);
+  return toTexture(c);
+}
+
+// Soft radial glow for the lit bulb.
+export function glowTexture() {
+  const [c, g] = makeCanvas(128, 128);
+  const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.18, 'rgba(255,236,200,0.85)');
+  grad.addColorStop(0.5, 'rgba(255,190,110,0.22)');
+  grad.addColorStop(1, 'rgba(255,170,80,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 128, 128);
   return toTexture(c);
 }

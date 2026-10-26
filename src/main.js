@@ -2,16 +2,23 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { buildFlashlight, LENGTH } from './flashlight.js';
-import { cuttingMatTexture, woodTexture, pegboardTexture } from './textures.js';
-import { PARTS, LIST_ORDER, TAKE_APART_ORDER, MOVABLE } from './parts.js';
+import { cuttingMatTexture, woodTexture, pegboardTexture, glowTexture } from './textures.js';
+import { PARTS, LIST_ORDER, TAKE_APART_ORDER, MOVABLE, GUIDE } from './parts.js';
+import { sfx, setSound, soundOn } from './audio.js';
 
 const $ = (id) => document.getElementById(id);
 const V3 = THREE.Vector3;
 const Q = THREE.Quaternion;
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const coarsePointer = matchMedia('(pointer: coarse)').matches;
 
 const canvas = $('scene');
 const viewport = $('viewport');
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* storage is optional */ } },
+};
 
 // ---------- renderer & scene ----------
 let renderer;
@@ -42,7 +49,9 @@ controls.minDistance = 2;
 controls.maxDistance = 85;
 controls.screenSpacePanning = true;
 
-const key = new THREE.DirectionalLight(0xfff3e6, 2.3);
+const KEY_INTENSITY = 2.3;
+const FILL_INTENSITY = 0.5;
+const key = new THREE.DirectionalLight(0xfff3e6, KEY_INTENSITY);
 key.position.set(-12, 30, 20);
 key.target.position.set(-1, 0, 4);
 key.castShadow = true;
@@ -52,7 +61,7 @@ key.shadow.camera.updateProjectionMatrix();
 key.shadow.bias = -0.0004;
 key.shadow.normalBias = 0.04;
 key.shadow.radius = 4;
-const fill = new THREE.DirectionalLight(0xd2e2ff, 0.5);
+const fill = new THREE.DirectionalLight(0xd2e2ff, FILL_INTENSITY);
 fill.position.set(22, 10, 18);
 scene.add(key, key.target, fill);
 
@@ -147,6 +156,113 @@ function benchPose(id) {
   return [new V3(...b.pos), BENCH_QUAT[b.pose].clone()];
 }
 
+// ---------- light: bulb glow, beam, and the dimmed room ----------
+const noHit = () => {};
+const bulbObj = fl.objects.bulb;
+const filamentMat = bulbObj.userData.filament.material;
+const bulbGlassMat = bulbObj.userData.glass.material;
+const reflectorMat = fl.objects.head.userData.reflector.material;
+const FILAMENT_Y = bulbObj.userData.filament.position.y;
+
+const bulbLight = new THREE.PointLight(0xffcf94, 0, 16, 2);
+bulbLight.position.y = FILAMENT_Y;
+const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+  map: glowTexture(), color: 0xffd9a0, blending: THREE.AdditiveBlending,
+  depthWrite: false, transparent: true, opacity: 0, fog: false,
+}));
+glow.scale.set(2.6, 2.6, 1);
+glow.position.y = FILAMENT_Y;
+glow.raycast = noHit;
+glow.visible = false;
+bulbObj.add(bulbLight, glow);
+
+const BEAM_LEN = 26;
+const BEAM_SPREAD = 0.27;
+const spot = new THREE.SpotLight(0xfff0d4, 0, 80, BEAM_SPREAD + 0.05, 0.6, 1.4);
+spot.position.set(0, LENGTH + 0.2, 0);
+spot.target.position.set(0, LENGTH + 30, 0);
+const beam = new THREE.Mesh(
+  new THREE.CylinderGeometry(2.3, 2.3 + BEAM_LEN * Math.tan(BEAM_SPREAD), BEAM_LEN, 64, 1, true),
+  new THREE.ShaderMaterial({
+    uniforms: { uColor: { value: new THREE.Color(0xffe2b0) }, uOpacity: { value: 0 } },
+    vertexShader: `
+      varying float vAlong; varying vec3 vNormal; varying vec3 vView;
+      void main() {
+        vAlong = uv.y;
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vView = normalize(-mv.xyz);
+        vNormal = normalize(normalMatrix * normal);
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `
+      uniform vec3 uColor; uniform float uOpacity;
+      varying float vAlong; varying vec3 vNormal; varying vec3 vView;
+      void main() {
+        float facing = pow(abs(dot(normalize(vNormal), normalize(vView))), 2.2);
+        float fade = pow(vAlong, 2.0);
+        gl_FragColor = vec4(uColor, uOpacity * facing * fade);
+      }`,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+  }),
+);
+beam.rotation.x = Math.PI; // narrow end at the lens
+beam.position.y = LENGTH + BEAM_LEN / 2 + 0.05;
+beam.raycast = noHit;
+beam.visible = false;
+fl.root.add(spot, spot.target, beam);
+
+// Remember every material's reflection strength so the room can dim around the beam.
+const envMats = [];
+scene.traverse((o) => {
+  if (o.isMesh && o.material && 'envMapIntensity' in o.material) envMats.push([o.material, o.material.envMapIntensity]);
+});
+
+let switchOn = false;
+const power = { level: 0, beam: 0 };
+const WARM = new THREE.Color(0xffb866);
+const CIRCUIT = ['tailcap', 'battery1', 'battery2', 'bulb'];
+
+const circuitComplete = () => CIRCUIT.every((id) => state[id] === 'in');
+const isLit = () => switchOn && circuitComplete();
+const beamOn = () => isLit() && state.head === 'in';
+
+function setLit(mat, on, intensity) {
+  mat.userData.lit = on ? WARM : null;
+  mat.userData.litIntensity = intensity;
+}
+
+function updatePower(dt) {
+  const k = Math.min(1, dt * 11);
+  power.level += ((isLit() ? 1 : 0) - power.level) * k;
+  power.beam += ((beamOn() ? 1 : 0) - power.beam) * k;
+  const L = power.level;
+  const B = power.beam;
+  setLit(filamentMat, L > 0.004, 9 * L);
+  setLit(bulbGlassMat, L > 0.004, 0.35 * L);
+  setLit(reflectorMat, B > 0.004, 0.45 * B);
+  bulbLight.intensity = 24 * L;
+  glow.visible = L > 0.004;
+  glow.material.opacity = 0.95 * L;
+  spot.intensity = 900 * B;
+  beam.visible = B > 0.004;
+  beam.material.uniforms.uOpacity.value = 0.5 * B;
+  const dim = Math.max(0.3 * L, 0.72 * B);
+  key.intensity = KEY_INTENSITY * (1 - 0.85 * dim);
+  fill.intensity = FILL_INTENSITY * (1 - dim);
+  for (const [m, base] of envMats) m.envMapIntensity = base * (1 - 0.75 * dim);
+}
+
+// "Battery 1" reads as a name; "the bulb" needs an article.
+const partRef = (id) => (isBattery(id) ? PARTS[id].name : `the ${PARTS[id].name.toLowerCase()}`);
+const capitalise = (t) => t[0].toUpperCase() + t.slice(1);
+
+function missingForLight() {
+  const missing = CIRCUIT.filter((id) => state[id] !== 'in').map(partRef);
+  if (!missing.length) return null;
+  const list = missing.length === 1 ? missing[0] : `${missing.slice(0, -1).join(', ')} and ${missing.at(-1)}`;
+  return `${capitalise(list)} ${missing.length === 1 ? 'is' : 'are'} missing.`;
+}
+
 // ---------- rules ----------
 function isHidden(id) {
   if (id === 'battery1' || id === 'battery2') return state[id] === 'in';
@@ -181,7 +297,7 @@ function moveLabel(id) {
 function where(id) {
   if (id === 'spring') return state.tailcap === 'in' ? ['hidden', 'Inside the tail cap'] : ['bench', 'In the tail cap'];
   if (id === 'body') return ['in', 'Stays in the cradle'];
-  if (id === 'switch') return ['in', 'Built into the body'];
+  if (id === 'switch') return ['in', switchOn ? 'Switched on' : 'Switched off'];
   if (id === 'lens' && state.lens === 'in') return state.head === 'in' ? ['in', 'In the head'] : ['bench', 'In the head'];
   if (state[id] === 'out') return ['bench', 'On the bench'];
   return isHidden(id) ? ['hidden', 'Hidden inside'] : ['in', 'In place'];
@@ -208,23 +324,33 @@ function stepTweens(dt) {
 
 // ---------- moving parts ----------
 const _q = new Q();
+const isBattery = (id) => id === 'battery1' || id === 'battery2';
 
 function pullAxis(id) {
   const pq = home[id].parent.getWorldQuaternion(new Q());
   return new V3(0, Math.sign(PARTS[id].pull), 0).applyQuaternion(pq).normalize();
 }
 
+function partSound(id, duration) {
+  if (PARTS[id].spin) sfx.thread(duration, PARTS[id].spin);
+  else if (isBattery(id)) sfx.slide(duration);
+  else if (id === 'lens') sfx.glass();
+}
+
 async function takeOut(id, speed = 1) {
   const o = fl.objects[id];
   const cfg = PARTS[id];
   scene.updateMatrixWorld(true);
+  state[id] = 'moving'; // the contact breaks as soon as it starts to move
   const axis = pullAxis(id);
   const p0 = o.getWorldPosition(new V3());
   const q0 = o.getWorldQuaternion(new Q());
   scene.attach(o);
   const p1 = p0.clone().addScaledVector(axis, Math.abs(cfg.pull));
   const spin = cfg.spin * Math.PI * 2;
-  await tween((0.45 + Math.abs(cfg.pull) * 0.045) * speed, (k) => {
+  const d1 = (0.45 + Math.abs(cfg.pull) * 0.045) * speed;
+  partSound(id, d1);
+  await tween(d1, (k) => {
     o.position.lerpVectors(p0, p1, k);
     o.quaternion.copy(_q.setFromAxisAngle(axis, spin * k)).multiply(q0);
   });
@@ -235,6 +361,7 @@ async function takeOut(id, speed = 1) {
     o.position.y += Math.sin(Math.PI * k) * 3;
     o.quaternion.slerpQuaternions(q1, q2, k);
   });
+  sfx.thud();
   state[id] = 'out';
 }
 
@@ -258,13 +385,16 @@ async function putBack(id, speed = 1) {
     o.position.y += Math.sin(Math.PI * k) * 3;
     o.quaternion.slerpQuaternions(q0, q1, k);
   });
-  await tween((0.45 + Math.abs(cfg.pull) * 0.045) * speed, (k) => {
+  const d2 = (0.45 + Math.abs(cfg.pull) * 0.045) * speed;
+  partSound(id, d2);
+  await tween(d2, (k) => {
     o.position.lerpVectors(p1, pT, k);
     o.quaternion.copy(_q.setFromAxisAngle(axis, spin * (1 - k))).multiply(qT);
   });
   parent.attach(o);
   o.position.copy(pos);
   o.quaternion.copy(quat);
+  sfx.seat();
   state[id] = 'in';
 }
 
@@ -273,13 +403,15 @@ let busy = false;
 async function run(task) {
   if (busy) return;
   busy = true;
+  const wasLit = isLit();
   render();
   try {
     if (inspecting) await endInspect();
     await task();
   } finally {
     busy = false;
-    render();
+    if (!wasLit && isLit()) toast(state.head === 'in' ? 'Circuit complete. It lights up!' : 'The bare bulb lights up. Put the head on to focus it into a beam.');
+    afterChange();
   }
 }
 
@@ -294,29 +426,57 @@ function movePart(id) {
   run(() => (action === 'out' ? takeOut(id) : putBack(id)));
 }
 
-function toggleAll() {
-  const allOut = MOVABLE.every((id) => state[id] === 'out');
-  run(async () => {
-    if (allOut) {
-      for (const id of [...TAKE_APART_ORDER].reverse()) {
-        if (state[id] === 'out' && !blockReason(id, 'in')) await putBack(id, 0.6);
-      }
-    } else {
-      for (const id of TAKE_APART_ORDER) {
-        if (state[id] === 'in' && !blockReason(id, 'out')) await takeOut(id, 0.6);
-      }
+function takeAllApart(speed = 0.6) {
+  return run(async () => {
+    for (const id of TAKE_APART_ORDER) {
+      if (state[id] === 'in' && !blockReason(id, 'out')) await takeOut(id, speed);
     }
   });
 }
 
+function toggleAll() {
+  if (MOVABLE.every((id) => state[id] === 'out')) {
+    run(async () => {
+      for (const id of [...TAKE_APART_ORDER].reverse()) {
+        if (state[id] === 'out' && !blockReason(id, 'in')) await putBack(id, 0.6);
+      }
+    });
+  } else {
+    takeAllApart();
+  }
+}
+
+// ---------- the switch ----------
+const dome = fl.objects.switch.userData.dome;
+const DOME_Y = dome.position.y;
+
+function toggleSwitch(forceOn) {
+  if (busy) return;
+  switchOn = forceOn ?? !switchOn;
+  sfx.click();
+  tween(0.07, (k) => (dome.position.y = DOME_Y - 0.09 * k)).then(() => tween(0.09, (k) => (dome.position.y = DOME_Y - 0.09 * (1 - k))));
+  if (switchOn) {
+    const missing = missingForLight();
+    if (missing) toast(`Click… nothing. The circuit is broken. ${missing}`);
+    else if (state.head !== 'in') toast('The bare bulb lights up. Put the head on to focus it into a beam.');
+    else if (!inspecting) beamShot();
+  }
+  afterChange();
+}
+
 // ---------- camera ----------
-const VIEW_DIR = new V3(-0.1, 0.8, 1).normalize();
+const portrait = () => camera.aspect < 0.9;
+function viewDir() {
+  return portrait() ? new V3(-0.05, 1.25, 1).normalize() : new V3(-0.1, 0.8, 1).normalize();
+}
+
 function overviewPose() {
   const vf = THREE.MathUtils.degToRad(camera.fov) / 2;
   const hf = Math.atan(Math.tan(vf) * camera.aspect);
-  const d = Math.max(15.5 / Math.tan(hf), 8.5 / Math.tan(vf));
+  const [halfW, halfH] = portrait() ? [13.8, 10] : [15.5, 8.5];
+  const d = Math.max(halfW / Math.tan(hf), halfH / Math.tan(vf));
   const target = new V3(-2.2, 1.6, 4.2);
-  return { pos: target.clone().addScaledVector(VIEW_DIR, d), target };
+  return { pos: target.clone().addScaledVector(viewDir(), d), target };
 }
 
 function animateCamera(pos, target, duration) {
@@ -326,6 +486,20 @@ function animateCamera(pos, target, duration) {
     camera.position.lerpVectors(p0, pos, k);
     controls.target.lerpVectors(t0, target, k);
   });
+}
+
+function fitBox(box, duration = 0.9, minDist = 6) {
+  const sphere = box.getBoundingSphere(new THREE.Sphere());
+  const vf = THREE.MathUtils.degToRad(camera.fov) / 2;
+  const hf = Math.atan(Math.tan(vf) * camera.aspect);
+  const dist = Math.max(minDist, (sphere.radius / Math.sin(Math.min(vf, hf))) * 1.02);
+  userMoved = true;
+  return animateCamera(sphere.center.clone().addScaledVector(viewDir(), dist), sphere.center, duration);
+}
+
+// Frame the flashlight and the pool of light it throws down the bench.
+function beamShot() {
+  fitBox(new THREE.Box3(new V3(-11, 0, -3), new V3(27, 3, 5)), 1.4);
 }
 
 let userMoved = false;
@@ -346,7 +520,7 @@ let savedView = null;
 
 async function inspect(id) {
   if (isHidden(id)) {
-    toast(`The ${PARTS[id].name.toLowerCase()} is inside the flashlight. Take it out to inspect it.`);
+    toast(`${capitalise(partRef(id))} is inside the flashlight. Take it out to inspect it.`);
     return;
   }
   if (busy) return;
@@ -360,10 +534,13 @@ async function inspect(id) {
   const vf = THREE.MathUtils.degToRad(camera.fov) / 2;
   const hf = Math.atan(Math.tan(vf) * camera.aspect);
   const dist = Math.max(2.4, (sphere.radius / Math.sin(Math.min(vf, hf))) * 1.1);
-  const dir = camera.position.clone().sub(controls.target).normalize();
+  // A bulb still in its socket can only be seen from the front, past the end of the tube.
+  const dir = id === 'bulb' && state.bulb === 'in'
+    ? new V3(1, 0.6, 0.7).normalize()
+    : camera.position.clone().sub(controls.target).normalize();
   dir.y = Math.max(dir.y, 0.5);
   dir.normalize();
-  await animateCamera(sphere.center.clone().addScaledVector(dir, dist), sphere.center, 0.85);
+  await animateCamera(sphere.center.clone().addScaledVector(dir, Math.max(dist, id === 'bulb' ? 4 : 0)), sphere.center, 0.85);
   if (inspecting === id && !reduceMotion) {
     controls.autoRotate = true;
     controls.autoRotateSpeed = 1.2;
@@ -379,17 +556,110 @@ async function endInspect() {
 }
 
 function resetView() {
-  const go = async () => {
-    if (inspecting) {
-      inspecting = null;
-      controls.autoRotate = false;
-      render();
+  if (inspecting) {
+    inspecting = null;
+    controls.autoRotate = false;
+    render();
+  }
+  const p = overviewPose();
+  animateCamera(p.pos, p.target, 0.8).then(() => (userMoved = false));
+}
+
+// ---------- guided build ----------
+const guide = { active: false, shownStep: -1, ghost: null, ghostFor: null };
+const GUIDE_DONE = {
+  lens: () => state.lens === 'in',
+  bulb: () => state.bulb === 'in',
+  head: () => state.head === 'in',
+  battery1: () => state.battery1 === 'in',
+  battery2: () => state.battery2 === 'in',
+  tailcap: () => state.tailcap === 'in',
+  switch: () => beamOn(),
+};
+const guideIndex = () => GUIDE.findIndex((s) => !GUIDE_DONE[s.id]());
+const guideStep = () => (guide.active ? GUIDE[guideIndex()] || null : null);
+
+const ghostMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.3, depthTest: false, depthWrite: false });
+
+// A see-through blueprint-blue copy of the part where it needs to go, drawn on top of everything
+// so it shows even inside the tube.
+function makeGhost(id) {
+  const src = fl.objects[id];
+  scene.updateMatrixWorld(true);
+  const inv = src.matrixWorld.clone().invert();
+  const g = new THREE.Group();
+  src.traverse((o) => {
+    if (!o.isMesh) return;
+    const m = new THREE.Mesh(o.geometry, ghostMat);
+    new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld).decompose(m.position, m.quaternion, m.scale);
+    m.renderOrder = 10;
+    m.raycast = noHit;
+    g.add(m);
+  });
+  g.position.copy(home[id].pos);
+  g.quaternion.copy(home[id].quat);
+  home[id].parent.add(g);
+  return g;
+}
+
+function clearGhost() {
+  guide.ghost?.removeFromParent();
+  guide.ghost = null;
+  guide.ghostFor = null;
+}
+
+function syncGuide() {
+  if (!guide.active) return;
+  const i = guideIndex();
+  const step = GUIDE[i];
+  const needsGhost = step && MOVABLE.includes(step.id) && state[step.id] === 'out';
+  if (!needsGhost || guide.ghostFor !== step.id) {
+    clearGhost();
+    if (needsGhost) {
+      guide.ghost = makeGhost(step.id);
+      guide.ghostFor = step.id;
     }
-    const p = overviewPose();
-    await animateCamera(p.pos, p.target, 0.8);
-    userMoved = false;
-  };
-  go();
+  }
+  if (i !== guide.shownStep) {
+    guide.shownStep = i;
+    if (i < 0) {
+      toast('Built and working. Nice job.');
+    } else if (step.id === 'switch') {
+      fitBox(partBox('body').union(partBox('head')), 0.9);
+    } else {
+      scene.updateMatrixWorld(true);
+      const box = partBox(step.id);
+      if (guide.ghost) box.expandByObject(guide.ghost);
+      fitBox(box, 0.9);
+    }
+  }
+}
+
+async function startGuide() {
+  if (busy) return;
+  guide.active = true;
+  guide.shownStep = -1;
+  switchOn = false;
+  selected = null;
+  if (MOVABLE.some((id) => state[id] !== 'out')) {
+    toast('Taking it apart first, so you can build it from scratch.');
+    await takeAllApart(0.5);
+  } else {
+    afterChange();
+  }
+}
+
+function exitGuide() {
+  guide.active = false;
+  clearGhost();
+  afterChange();
+}
+
+function doGuideStep() {
+  const step = guideStep();
+  if (!step) return;
+  if (step.id === 'switch') toggleSwitch(true);
+  else movePart(step.id);
 }
 
 // ---------- picking & highlight ----------
@@ -397,24 +667,68 @@ let selected = null;
 let hovered = null;
 const raycaster = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
+const _c = new V3();
+
+// Small parts are hard to hit on a phone, so a near miss still counts.
+function nearbySmallPart(x, y, r) {
+  const candidates = ['switch'];
+  if (!isHidden('bulb')) candidates.push('bulb');
+  if (state.tailcap === 'out') candidates.push('spring');
+  if (state.lens === 'out') candidates.push('lens');
+  let best = null;
+  let bestD = coarsePointer ? 34 : 14;
+  for (const id of candidates) {
+    partBox(id).getCenter(_c).project(camera);
+    const d = Math.hypot((_c.x * 0.5 + 0.5) * r.width + r.left - x, (-_c.y * 0.5 + 0.5) * r.height + r.top - y);
+    if (d < bestD) {
+      bestD = d;
+      best = id;
+    }
+  }
+  return best;
+}
 
 function pick(x, y) {
   const r = canvas.getBoundingClientRect();
   ndc.set(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1);
   raycaster.setFromCamera(ndc, camera);
   const targets = [fl.root, ...MOVABLE.map((id) => fl.objects[id]).filter((o) => o.parent === scene)];
-  for (const hit of raycaster.intersectObjects(targets, true)) {
-    if (hit.object.userData.part) return hit.object.userData.part;
+  let hit = null;
+  for (const h of raycaster.intersectObjects(targets, true)) {
+    if (h.object.userData.part) {
+      hit = h.object.userData.part;
+      break;
+    }
   }
-  return null;
+  if (hit === 'switch' || hit === 'bulb' || hit === 'spring') return hit;
+  return nearbySmallPart(x, y, r) || hit;
 }
 
-function refreshGlow() {
+const _glow = new THREE.Color();
+const PULSE = new THREE.Color(0x6a2c08);
+function refreshGlow(time = 0) {
+  const step = guideStep();
+  const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(time * 4));
   for (const [id, meshes] of Object.entries(meshesByPart)) {
-    // No tint while inspecting: the part should show its true colours up close.
-    const hex = inspecting ? 0x000000 : id === selected ? 0x3a1806 : id === hovered ? 0x1e0e04 : 0x000000;
-    for (const m of meshes) m.material.emissive?.setHex(hex);
+    _glow.setHex(0);
+    if (!inspecting) {
+      if (step && step.id === id) _glow.copy(PULSE).multiplyScalar(pulse);
+      else if (id === selected) _glow.setHex(0x3a1806);
+      else if (id === hovered) _glow.setHex(0x1e0e04);
+    }
+    for (const m of meshes) {
+      const mat = m.material;
+      if (!mat.emissive) continue;
+      if (mat.userData.lit) {
+        mat.emissive.copy(mat.userData.lit);
+        mat.emissiveIntensity = mat.userData.litIntensity;
+      } else {
+        mat.emissive.copy(_glow);
+        mat.emissiveIntensity = 1;
+      }
+    }
   }
+  ghostMat.opacity = 0.24 + 0.24 * pulse;
 }
 
 function select(id) {
@@ -433,7 +747,7 @@ canvas.addEventListener('pointerup', (e) => {
   const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
   const quick = performance.now() - down.t < 600;
   down = null;
-  if (moved > 6 || !quick) return;
+  if (moved > 8 || !quick) return;
   const id = pick(e.clientX, e.clientY);
   const now = performance.now();
   if (id && lastTap.id === id && now - lastTap.t < 400) {
@@ -442,6 +756,11 @@ canvas.addEventListener('pointerup', (e) => {
     return;
   }
   lastTap = { id, t: now };
+  const step = guideStep();
+  if (step && id === step.id) {
+    doGuideStep();
+    return;
+  }
   if (!id && inspecting) return;
   select(id);
 });
@@ -451,10 +770,7 @@ canvas.addEventListener('pointermove', (e) => {
 });
 canvas.addEventListener('pointerleave', () => {
   hoverEvent = null;
-  if (hovered) {
-    hovered = null;
-    refreshGlow();
-  }
+  hovered = null;
 });
 
 function updateHover() {
@@ -464,7 +780,6 @@ function updateHover() {
   if (id !== hovered) {
     hovered = id;
     canvas.style.cursor = id ? 'pointer' : '';
-    refreshGlow();
   }
 }
 
@@ -477,7 +792,7 @@ for (const id of LABELLED) {
   b.className = 'part-label';
   b.textContent = PARTS[id].name;
   b.hidden = true;
-  b.addEventListener('click', () => select(id));
+  b.addEventListener('click', () => (guideStep()?.id === id ? doGuideStep() : select(id)));
   b.addEventListener('dblclick', () => inspect(id));
   $('labels').append(b);
   labels[id] = b;
@@ -485,6 +800,7 @@ for (const id of LABELLED) {
 
 function labelShown(id) {
   if (inspecting || busy) return false;
+  if (guideStep()?.id === id) return state[id] === 'out';
   if (id === selected) return !isHidden(id);
   if (id === 'spring') return false;
   if (id === 'lens') return state.lens === 'out';
@@ -496,6 +812,7 @@ const _p = new V3();
 function updateLabels() {
   const w = viewport.clientWidth;
   const h = viewport.clientHeight;
+  const stepId = guideStep()?.id;
   for (const id of LABELLED) {
     const el = labels[id];
     const show = labelShown(id);
@@ -504,7 +821,8 @@ function updateLabels() {
     _box.makeEmpty();
     for (const m of meshesByPart[id]) _box.expandByObject(m);
     // Battery 1 is labelled at its near end so it doesn't collide with Battery 2.
-    if (id === 'battery1' && state[id] === 'out') _p.set((_box.min.x + _box.max.x) / 2, _box.min.y, _box.max.z + 0.8);
+    const below = id === 'battery1' && state[id] === 'out';
+    if (below) _p.set((_box.min.x + _box.max.x) / 2, _box.min.y, _box.max.z + 0.8);
     else _p.set((_box.min.x + _box.max.x) / 2, _box.max.y + 0.4, (_box.min.z + _box.max.z) / 2);
     _p.project(camera);
     if (_p.z > 1) {
@@ -513,8 +831,8 @@ function updateLabels() {
     }
     const x = (_p.x * 0.5 + 0.5) * w;
     const y = (-_p.y * 0.5 + 0.5) * h;
-    el.style.transform = `translate(${x}px, ${y}px) translate(-50%, ${id === 'battery1' && state[id] === 'out' ? '20%' : '-100%'})`;
-    el.classList.toggle('is-selected', id === selected);
+    el.style.transform = `translate(${x}px, ${y}px) translate(-50%, ${below ? '20%' : '-100%'})`;
+    el.classList.toggle('is-selected', id === selected || id === stepId);
   }
 }
 
@@ -525,22 +843,60 @@ function toast(msg) {
   el.textContent = msg;
   el.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => (el.hidden = true), 3200);
+  toastTimer = setTimeout(() => (el.hidden = true), 3600);
 }
 
 const FIXED_NOTE = {
   spring: 'The spring stays fixed inside the tail cap.',
   body: 'The body stays in the cradle. Everything else comes off it.',
-  switch: 'The switch is built into the body.',
 };
+
+function renderGuideCard(card) {
+  const i = guideIndex();
+  const total = GUIDE.length;
+  const bar = GUIDE.map((s, n) => `<span class="${GUIDE_DONE[s.id]() ? 'done' : n === i ? 'now' : ''}"></span>`).join('');
+  const list = GUIDE.map((s, n) => `<li class="${GUIDE_DONE[s.id]() ? 'done' : n === i ? 'now' : ''}">${s.title}</li>`).join('');
+  if (i < 0) {
+    card.innerHTML = `
+      <p class="eyebrow">Guided build · Complete</p>
+      <div class="steps-bar">${bar}</div>
+      <h2>It works!</h2>
+      <p>You built a working flashlight: six parts and one complete circuit, from the batteries through the bulb and back.</p>
+      <div class="actions">
+        <button type="button" class="btn primary" data-act="guide-again">Build it again</button>
+        <button type="button" class="btn" data-act="guide-exit">Exit guide</button>
+      </div>
+      <ol class="guide-steps">${list}</ol>`;
+    return;
+  }
+  const step = GUIDE[i];
+  const blocked = MOVABLE.includes(step.id) ? blockReason(step.id, 'in') : null;
+  card.innerHTML = `
+    <p class="eyebrow">Guided build · Step ${i + 1} of ${total}</p>
+    <div class="steps-bar">${bar}</div>
+    <h2>${step.title}</h2>
+    <p>${step.tip}</p>
+    <div class="actions">
+      <button type="button" class="btn primary" data-act="guide-do" ${busy || blocked ? 'disabled' : ''}>${step.action}</button>
+      <button type="button" class="btn" data-act="guide-exit">Exit guide</button>
+    </div>
+    <p class="reason">${blocked || 'Or tap the glowing part yourself. The see-through outline shows where it goes.'}</p>
+    <ol class="guide-steps">${list}</ol>`;
+}
 
 function renderCard() {
   const card = $('card');
+  card.classList.toggle('is-guide', guide.active);
+  if (guide.active) {
+    renderGuideCard(card);
+    return;
+  }
   if (!selected) {
     card.innerHTML = `
       <p class="eyebrow">Getting started</p>
       <h2>Pick a part</h2>
-      <p>Tap anything on the flashlight, or pick from the list below. A good first move: unscrew the tail cap at the back to reach the batteries.</p>`;
+      <p>Tap anything on the flashlight, or pick from the list below. A good first move: unscrew the tail cap at the back to reach the batteries.</p>
+      <p class="reason">New here? Try <b>Guided build</b> for a step-by-step walkthrough.</p>`;
     return;
   }
   const id = selected;
@@ -552,6 +908,8 @@ function renderCard() {
     const why = blockReason(id, state[id] === 'in' ? 'out' : 'in');
     move = `<button type="button" class="btn primary" data-act="move" ${why || busy ? 'disabled' : ''}>${moveLabel(id)}</button>`;
     if (why) reason = why;
+  } else if (id === 'switch') {
+    move = `<button type="button" class="btn primary" data-act="power" ${busy ? 'disabled' : ''}>${switchOn ? 'Switch off' : 'Switch on'}</button>`;
   } else {
     reason = FIXED_NOTE[id] || '';
   }
@@ -585,11 +943,23 @@ function render() {
   const apart = $('apartBtn');
   apart.textContent = outCount === MOVABLE.length ? 'Put it all back' : 'Take it all apart';
   apart.disabled = busy;
+  const pw = $('powerBtn');
+  pw.setAttribute('aria-pressed', String(switchOn));
+  pw.querySelector('.label').textContent = switchOn ? 'Switch off' : 'Switch on';
+  pw.classList.toggle('is-lit', isLit());
+  pw.disabled = busy;
+  const gb = $('guideBtn');
+  gb.textContent = guide.active ? 'Exit guide' : 'Guided build';
+  gb.disabled = busy && !guide.active;
   $('inspectBar').hidden = !inspecting;
   if (inspecting) $('inspectName').textContent = PARTS[inspecting].name;
   renderCard();
   renderList();
-  refreshGlow();
+}
+
+function afterChange() {
+  syncGuide();
+  render();
 }
 
 $('card').addEventListener('click', (e) => {
@@ -597,14 +967,35 @@ $('card').addEventListener('click', (e) => {
   if (act === 'move') movePart(selected);
   if (act === 'inspect') inspect(selected);
   if (act === 'done') endInspect();
+  if (act === 'power') toggleSwitch();
+  if (act === 'guide-do') doGuideStep();
+  if (act === 'guide-exit') exitGuide();
+  if (act === 'guide-again') startGuide();
 });
 $('partList').addEventListener('click', (e) => {
   const id = e.target.closest('[data-id]')?.dataset.id;
   if (id) select(id);
 });
 $('apartBtn').addEventListener('click', toggleAll);
+$('powerBtn').addEventListener('click', () => toggleSwitch());
+$('guideBtn').addEventListener('click', () => (guide.active ? exitGuide() : startGuide()));
 $('resetViewBtn').addEventListener('click', resetView);
 $('doneInspect').addEventListener('click', endInspect);
+
+const soundBtn = $('soundBtn');
+function renderSound() {
+  soundBtn.setAttribute('aria-pressed', String(soundOn()));
+  soundBtn.querySelector('.label').textContent = soundOn() ? 'Sound on' : 'Sound off';
+}
+setSound(store.get('kaputle:sound', false));
+renderSound();
+soundBtn.addEventListener('click', () => {
+  setSound(!soundOn());
+  store.set('kaputle:sound', soundOn());
+  renderSound();
+  sfx.click();
+});
+
 window.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   if (inspecting) endInspect();
@@ -613,9 +1004,11 @@ window.addEventListener('keydown', (e) => {
 
 // ---------- theme ----------
 function applyTheme() {
-  const bg = getComputedStyle(document.documentElement).getPropertyValue('--scene').trim() || '#d6dce3';
+  const cs = getComputedStyle(document.documentElement);
+  const bg = cs.getPropertyValue('--scene').trim() || '#d6dce3';
   scene.background = new THREE.Color(bg);
   scene.fog = new THREE.Fog(bg, 90, 200);
+  ghostMat.color.set(cs.getPropertyValue('--ghost').trim() || '#2f7bff');
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
@@ -659,6 +1052,8 @@ renderer.setAnimationLoop(() => {
   stepTweens(dt);
   controls.update();
   updateHover();
+  updatePower(dt);
+  refreshGlow(clock.elapsedTime);
   updateLabels();
   renderer.render(scene, camera);
   if (first) {
@@ -669,4 +1064,7 @@ renderer.setAnimationLoop(() => {
 });
 
 // Handy for debugging and automated checks.
-window.kaputle = { state, select, inspect, endInspect, movePart, toggleAll, isBusy: () => busy, camera, controls };
+window.kaputle = {
+  state, select, inspect, endInspect, movePart, toggleAll, toggleSwitch, startGuide, exitGuide, doGuideStep,
+  isBusy: () => busy, isLit, camera, controls,
+};
