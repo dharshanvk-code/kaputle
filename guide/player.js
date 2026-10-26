@@ -253,28 +253,60 @@ const tapEase = (k) => {
 };
 
 // ---------- app state ----------
+// Positions in the product file describe the finished, upright product. Parts that have been
+// fitted live inside `assembly`, which can start upside down and be flipped over, or be lifted
+// and lowered onto another part, the way manuals do. A part with a `parent` is fitted to that
+// part first, even while the parent is still lying in the pile, and then travels with it.
 let product = null;
 const objects = {};
-const final = {};
 const pile = {};
+const finalM = {}; // upright pose of each part
+const localM = {}; // pose inside the assembly group
+const relM = {}; // pose relative to its parent part
+const assembly = new THREE.Group();
+scene.add(assembly);
+const pivot = new V3();
 let done = 0; // number of completed steps
 let busy = false;
 let ghosts = [];
 const ghostMat = new THREE.MeshBasicMaterial({ color: 0x2f7bff, transparent: true, opacity: 0.3, depthTest: false, depthWrite: false });
 
-function approachOffset(step, p) {
+const partById = (id) => product.parts.find((p) => p.id === id);
+const canonicalAxis = (p) => (p.shape === 'screw' || p.shape === 'nail' ? DOWN : UP);
+const holderOf = (p) => (p.parent ? objects[p.parent] : assembly);
+const holderMatrix = (p) => (p.parent ? relM[p.id] : localM[p.id]);
+
+// Where a part ends up in the world right now, given where its holder currently is.
+function targetPose(p) {
+  const h = holderOf(p);
+  h.updateWorldMatrix(true, false);
+  const pos = new V3();
+  const quat = new Q();
+  h.matrixWorld.clone().multiply(holderMatrix(p)).decompose(pos, quat, new V3());
+  return { pos, quat };
+}
+
+function approachOffset(step, p, t) {
+  if (step.approach?.[p.id]) return new V3(...step.approach[p.id]);
   if (step.from) return new V3(...step.from);
-  if (p.dir) return new V3(...p.dir).normalize().multiplyScalar(-(step.slide || 4));
+  if (p.dir) return canonicalAxis(p).clone().applyQuaternion(t.quat).multiplyScalar(-(step.slide || 4));
   return new V3(0, 20, 0);
 }
 
-async function animatePart(step, p, forward) {
+// Hand the part to its holder and snap it to its exact pose there.
+function settle(p) {
   const o = objects[p.id];
-  const f = final[p.id];
+  holderOf(p).add(o);
+  holderMatrix(p).decompose(o.position, o.quaternion, o.scale);
+}
+
+async function animatePart(step, p, t, forward) {
+  const o = objects[p.id];
   const s = pile[p.id];
-  const appr = f.pos.clone().add(approachOffset(step, p));
+  if (!forward) scene.attach(o);
+  const appr = t.pos.clone().add(approachOffset(step, p, t));
   const lift = p.shape === 'board' ? 22 : 10;
-  const dirAxis = p.dir ? new V3(...p.dir).normalize() : null;
+  const dirAxis = p.dir ? canonicalAxis(p).clone().applyQuaternion(t.quat) : null;
   const turns = (step.spin || 0) * Math.PI * 2;
   const insertEase = step.tool === 'Hammer' ? tapEase : ease;
   const _q = new Q();
@@ -283,13 +315,12 @@ async function animatePart(step, p, forward) {
     const e = ease(k);
     o.position.lerpVectors(s.pos, appr, e);
     o.position.y += Math.sin(Math.PI * e) * lift;
-    o.quaternion.slerpQuaternions(s.quat, f.quat, e);
-    if (turns && dirAxis) o.quaternion.premultiply(_q.setFromAxisAngle(dirAxis, turns));
+    o.quaternion.slerpQuaternions(s.quat, t.quat, e);
   };
   const insert = (k) => {
     const e = insertEase(k);
-    o.position.lerpVectors(appr, f.pos, e);
-    o.quaternion.copy(f.quat);
+    o.position.lerpVectors(appr, t.pos, e);
+    o.quaternion.copy(t.quat);
     if (turns && dirAxis) o.quaternion.premultiply(_q.setFromAxisAngle(dirAxis, turns * (1 - e)));
   };
   const travelTime = p.shape === 'board' ? 1.1 : 0.8;
@@ -303,10 +334,40 @@ async function animatePart(step, p, forward) {
   }
 }
 
+// Turn the whole assembly over, lifting it clear of the floor on the way round.
+async function flipAssembly(step, forward) {
+  const axis = step.axis === 'z' ? new V3(0, 0, 1) : new V3(1, 0, 0);
+  const q0 = assembly.quaternion.clone();
+  const sign = forward ? 1 : -1;
+  const lift = step.lift ?? 30;
+  const _q = new Q();
+  await tween(1.8, (k) => {
+    const e = ease(k);
+    assembly.quaternion.copy(q0).premultiply(_q.setFromAxisAngle(axis, Math.PI * sign * e));
+    assembly.position.y = pivot.y + Math.sin(Math.PI * e) * lift;
+  });
+  assembly.position.y = pivot.y;
+}
+
 async function playStep(i, forward) {
   const step = product.steps[i];
-  const list = step.parts.map((id) => product.parts.find((p) => p.id === id));
-  await Promise.all(list.map((p, n) => wait(n * 0.07).then(() => animatePart(step, p, forward))));
+  if (step.type === 'flip') return flipAssembly(step, forward);
+  const list = step.parts.map(partById);
+  // `lower`: lift what's built so far, bring the new part in underneath, then lower onto it.
+  const lowerBy = step.lower || 0;
+  const raise = (k) => (assembly.position.y = pivot.y + lowerBy * k);
+  const targets = list.map(targetPose); // measured with the assembly at rest
+  if (forward) {
+    if (lowerBy) await tween(0.6, (k) => raise(ease(k)));
+    await Promise.all(list.map((p, n) => wait(n * 0.07).then(() => animatePart(step, p, targets[n], true))));
+    if (lowerBy) await tween(0.9, (k) => raise(1 - ease(k)));
+    list.forEach(settle);
+  } else {
+    list.forEach((p) => scene.attach(objects[p.id]));
+    if (lowerBy) await tween(0.6, (k) => raise(ease(k)));
+    await Promise.all(list.map((p, n) => wait(n * 0.05).then(() => animatePart(step, p, targets[n], false))));
+    if (lowerBy) await tween(0.6, (k) => raise(1 - ease(k)));
+  }
 }
 
 function clearGhosts() {
@@ -317,12 +378,12 @@ function clearGhosts() {
 function showGhosts() {
   clearGhosts();
   const step = product.steps[done];
-  if (!step) return;
+  if (!step || step.type === 'flip') return;
   for (const id of step.parts) {
-    const src = objects[id];
+    const p = partById(id);
     const g = new THREE.Group();
-    src.traverse((o) => {
-      if (!o.isMesh) return;
+    objects[id].traverse((o) => {
+      if (!o.isMesh || o.userData.part !== id) return; // the part itself, not hardware already fitted to it
       const m = new THREE.Mesh(o.geometry, ghostMat);
       m.position.copy(o.position);
       m.quaternion.copy(o.quaternion);
@@ -330,9 +391,8 @@ function showGhosts() {
       m.raycast = () => {};
       g.add(m);
     });
-    g.position.copy(final[id].pos);
-    g.quaternion.copy(final[id].quat);
-    scene.add(g);
+    holderOf(p).add(g);
+    holderMatrix(p).decompose(g.position, g.quaternion, g.scale);
     ghosts.push(g);
   }
 }
@@ -366,12 +426,12 @@ function stepBox(i) {
   const step = product.steps[i];
   const box = new THREE.Box3();
   for (const id of step.parts) {
-    const p = product.parts.find((q) => q.id === id);
-    const ext = partExtent(p).applyQuaternion(final[id].quat);
+    const p = partById(id);
+    const t = targetPose(p);
+    const ext = partExtent(p).applyQuaternion(t.quat);
     ext.set(Math.abs(ext.x), Math.abs(ext.y), Math.abs(ext.z)).multiplyScalar(0.5);
-    const c = final[id].pos;
-    box.expandByPoint(c.clone().sub(ext)).expandByPoint(c.clone().add(ext));
-    box.expandByPoint(c.clone().add(approachOffset(step, p)));
+    box.expandByPoint(t.pos.clone().sub(ext)).expandByPoint(t.pos.clone().add(ext));
+    box.expandByPoint(t.pos.clone().add(approachOffset(step, p, t)));
   }
   return box;
 }
@@ -385,13 +445,15 @@ function overviewBox() {
 function frameCurrent(duration = 1) {
   const step = product.steps[done];
   if (!step) return fit(assembledBox, 30, duration);
-  const box = stepBox(done);
-  const addsBoard = step.parts.some((id) => product.parts.find((p) => p.id === id).shape === 'board');
-  if (addsBoard) {
-    for (let i = 0; i < done; i++) {
-      for (const id of product.steps[i].parts) box.expandByObject(objects[id]);
-    }
+  if (step.type === 'flip') {
+    const box = new THREE.Box3().setFromObject(assembly);
+    box.max.y += step.lift ?? 30;
+    return fit(box, step.view ?? 30, duration);
   }
+  const box = stepBox(done);
+  const addsBoard = step.parts.some((id) => partById(id).shape === 'board');
+  if (addsBoard && assembly.children.length) box.union(new THREE.Box3().setFromObject(assembly));
+  if (step.lower) box.max.y += step.lower;
   return fit(box, step.view ?? 30, duration);
 }
 
@@ -460,12 +522,12 @@ function needs(step) {
   const counts = new Map();
   for (const id of step.parts) {
     const p = product.parts.find((q) => q.id === id);
-    const k = `${p.label}|${p.name}`;
+    const k = `${p.label || ''}|${p.name}`;
     counts.set(k, (counts.get(k) || 0) + 1);
   }
   return [...counts].map(([k, n]) => {
     const [label, name] = k.split('|');
-    return `<li><span class="letter">${label}</span>${n} × ${name}</li>`;
+    return `<li>${label ? `<span class="letter">${label}</span>` : ''}${n} × ${name}</li>`;
   }).join('');
 }
 
@@ -486,20 +548,20 @@ function render() {
   } else {
     const step = product.steps[done];
     card.innerHTML = `
-      <p class="eyebrow">Step ${done + 1} of ${total}</p>
+      <p class="eyebrow">Step ${done + 1} of ${total}${step.manual ? ` · Manual step ${step.manual}` : ''}</p>
       <div class="steps-bar">${bar}</div>
       <h2>${step.title}</h2>
       <p>${step.text}</p>
       <div class="needs">
-        <span class="tool">${icon(step.tool)}${step.tool}</span>
-        <ul>${needs(step)}</ul>
+        <span class="tool">${icon(step.tool)}${step.tool || 'Hands'}</span>
+        ${step.parts.length ? `<ul>${needs(step)}</ul>` : ''}
       </div>
       <div class="actions">
         <button type="button" class="btn" data-act="back" ${busy || done === 0 ? 'disabled' : ''}>Back</button>
         <button type="button" class="btn primary" data-act="next" ${busy ? 'disabled' : ''}>Do this step</button>
         <button type="button" class="btn ghost" data-act="${autoplay ? 'stop' : 'play'}" ${busy && !autoplay ? 'disabled' : ''}>${autoplay ? 'Pause' : 'Play all'}</button>
       </div>
-      <p class="reason">The blue outline shows where the parts go.</p>`;
+      ${step.type === 'flip' ? '' : '<p class="reason">The blue outline shows where the parts go.</p>'}`;
   }
   $('stepList').innerHTML = product.steps.map((s, n) =>
     `<li><button type="button" class="step-row ${n < done ? 'done' : n === done ? 'now' : ''}" data-step="${n}" ${busy ? 'disabled' : ''}>
@@ -568,7 +630,7 @@ function updatePulse(t) {
   const k = 0.5 + 0.5 * Math.sin(t * 4);
   for (const [id, o] of Object.entries(objects)) {
     o.traverse((m) => {
-      if (m.isMesh && m.material.emissive) m.material.emissive.copy(PULSE).multiplyScalar(wanted.has(id) ? 0.4 + 0.6 * k : 0);
+      if (m.isMesh && m.userData.part === id && m.material.emissive) m.material.emissive.copy(PULSE).multiplyScalar(wanted.has(id) ? 0.4 + 0.6 * k : 0);
     });
   }
   ghostMat.opacity = 0.2 + 0.2 * k;
@@ -611,14 +673,26 @@ async function start() {
   for (const p of product.parts) {
     const o = buildPart(p);
     objects[p.id] = o;
-    final[p.id] = { pos: new V3(...p.pos), quat: assembledQuat(p) };
+    const q = assembledQuat(p);
+    finalM[p.id] = new THREE.Matrix4().compose(new V3(...p.pos), q, new V3(1, 1, 1));
     pile[p.id] = poses[p.id];
     o.position.copy(pile[p.id].pos);
     o.quaternion.copy(pile[p.id].quat);
     scene.add(o);
-    const ext = partExtent(p).applyQuaternion(final[p.id].quat);
+    const ext = partExtent(p).applyQuaternion(q);
     ext.set(Math.abs(ext.x), Math.abs(ext.y), Math.abs(ext.z)).multiplyScalar(0.5);
-    assembledBox.expandByPoint(final[p.id].pos.clone().sub(ext)).expandByPoint(final[p.id].pos.clone().add(ext));
+    assembledBox.expandByPoint(new V3(...p.pos).sub(ext)).expandByPoint(new V3(...p.pos).add(ext));
+  }
+  // The assembly turns about its own middle, so upside down it still sits on the floor.
+  pivot.set(0, (assembledBox.min.y + assembledBox.max.y) / 2, 0);
+  assembly.position.copy(pivot);
+  if (product.startFlipped) {
+    assembly.quaternion.setFromAxisAngle(product.startFlipped === 'z' ? new V3(0, 0, 1) : new V3(1, 0, 0), Math.PI);
+  }
+  const toLocal = new THREE.Matrix4().makeTranslation(-pivot.x, -pivot.y, -pivot.z);
+  for (const p of product.parts) {
+    localM[p.id] = toLocal.clone().multiply(finalM[p.id]);
+    if (p.parent) relM[p.id] = finalM[p.parent].clone().invert().multiply(finalM[p.id]);
   }
   scene.add(buildTray());
 
