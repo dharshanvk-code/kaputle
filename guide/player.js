@@ -90,6 +90,10 @@ function makeMaterials() {
     steel: new THREE.MeshStandardMaterial({ color: 0xc9cdd2, metalness: 1, roughness: 0.3 }),
     brass: new THREE.MeshStandardMaterial({ color: 0xd2aa55, metalness: 1, roughness: 0.3 }),
     cardboard: new THREE.MeshStandardMaterial({ color: 0xc49a6c, roughness: 0.95 }),
+    blackbrown: new THREE.MeshStandardMaterial({ map: birchTexture(), color: 0x4a3a32, roughness: 0.5 }),
+    white: new THREE.MeshStandardMaterial({ color: 0xf2f1ee, roughness: 0.55 }),
+    plastic: new THREE.MeshStandardMaterial({ color: 0x2b2b2e, roughness: 0.6 }),
+    felt: new THREE.MeshStandardMaterial({ color: 0xb9b4aa, roughness: 1 }),
   };
 }
 const MATS = makeMaterials();
@@ -152,7 +156,7 @@ function partExtent(p) {
 // Boards lie flat, long edge front-to-back, stacked largest first. Hardware sits in a tray,
 // one row per kind of part.
 const PILE_X = 92;
-const TRAY = { x: 44, z: 40, w: 30, d: 22 };
+const TRAY = { x: 44, z: 40, w: 30, d: 22 }; // depth grows with the number of hardware kinds
 
 function layOut(parts) {
   const poses = {};
@@ -188,6 +192,7 @@ function layOut(parts) {
   const lying = new Q().setFromAxisAngle(new V3(0, 0, 1), -Math.PI / 2); // local Y → +X
   let row = 0;
   const rows = groups.size;
+  TRAY.d = Math.max(22, rows * 4);
   for (const [, list] of groups) {
     const z = TRAY.z - TRAY.d / 2 + (TRAY.d / (rows + 1)) * (row + 1);
     list.forEach((p, i) => {
@@ -447,6 +452,7 @@ const TOOL_ICON = {
   Hands: '<path d="M7 11V5.5a1.5 1.5 0 0 1 3 0V10m0-4.5v-1a1.5 1.5 0 0 1 3 0V10m0-4a1.5 1.5 0 0 1 3 0v6a6 6 0 0 1-6 6h-.5A5.5 5.5 0 0 1 4 12.6L3.2 9.8a1.4 1.4 0 0 1 2.5-1.2L7 11" />',
   Hammer: '<path d="M13 7l4 4M4 20l9-9M11 5l3-3 6 6-3 3z" />',
   Screwdriver: '<path d="M4 20l6-6M10 14l2 2 7-7-2-2zM15 5l4 4" />',
+  Wrench: '<path d="M14.5 5.5a4 4 0 0 0 4.9 4.9L10 19.8a1.8 1.8 0 0 1-2.6 0l-3.2-3.2a1.8 1.8 0 0 1 0-2.6l9.4-9.4a4 4 0 0 0 .9.9z" />',
 };
 const icon = (tool) => `<svg viewBox="0 0 24 24" aria-hidden="true">${TOOL_ICON[tool] || TOOL_ICON.Hands}</svg>`;
 
