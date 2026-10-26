@@ -25,6 +25,25 @@ and animates each step, with a blue outline showing where parts go.
 
 To add a product, write a new JSON file and open `guide/?product=<name>`.
 
+It can also follow manuals that build upside down (`startFlipped` plus a `flip` step), lower a
+sub-assembly onto a part (`lower`), and fit hardware to a part while it's still lying in the pile
+(`parent`).
+
+### Turn a manual PDF into a guide
+
+`tools/manual-to-guide.mjs` sends an assembly manual to Claude, which drafts the product file.
+The draft is checked against what the player expects, and any problems go back to Claude to fix.
+
+```sh
+cd tools && npm install
+export ANTHROPIC_API_KEY=...        # or: ant auth login
+node manual-to-guide.mjs ~/Downloads/manual.pdf --name "Console table"
+# writes guide/products/console-table.json, then open guide/?product=console-table
+```
+
+It prints anything Claude had to estimate (manuals rarely give measurements), so you know what to
+check. `node tools/validate-product.mjs <file>` checks any product file on its own.
+
 ## Run it
 
 It's a static site with no build step. Serve the folder with any static server and open it:
@@ -47,4 +66,7 @@ three.js is loaded from jsDelivr through an import map in `index.html`.
 | `src/textures.js` | Procedural textures: cutting mat, wood, pegboard, knurling, battery wrapper |
 | `src/main.js` | Scene, camera, take-apart animations, inspecting, the light, the guided build, and the side panel |
 | `src/audio.js` | Synthesised sound effects (Web Audio) |
+| `guide/player.js` | The general assembly-guide player |
+| `tools/manual-to-guide.mjs` | Manual PDF → product file, using the Claude API |
+| `tools/validate-product.mjs` | Checks a product file |
 | `prototype/2d.html` | The first 2D emoji prototype |
