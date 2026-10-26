@@ -32,13 +32,14 @@ const scene = new THREE.Scene();
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
-const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 400);
+// A near plane of 0.5 (not 0.1) gives the depth buffer far more precision at bench distance.
+const camera = new THREE.PerspectiveCamera(35, 1, 0.5, 400);
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.maxPolarAngle = THREE.MathUtils.degToRad(84);
 controls.minDistance = 2;
-controls.maxDistance = 120;
+controls.maxDistance = 85;
 controls.screenSpacePanning = true;
 
 const key = new THREE.DirectionalLight(0xfff3e6, 2.3);
@@ -62,15 +63,21 @@ scene.add(key, key.target, fill);
     new THREE.BoxGeometry(110, 3, 44),
     new THREE.MeshStandardMaterial({ map: wood, roughness: 0.72 }),
   );
-  bench.position.set(0, -1.5, 2);
+  bench.position.set(0, -1.58, 2); // top sits 0.8 mm below the mat so they never z-fight
   bench.receiveShadow = true;
 
   const mat = new THREE.Mesh(
     new THREE.PlaneGeometry(44, 22),
-    new THREE.MeshStandardMaterial({ map: cuttingMatTexture(44, 22), roughness: 0.9 }),
+    new THREE.MeshStandardMaterial({
+      map: cuttingMatTexture(44, 22),
+      roughness: 0.9,
+      polygonOffset: true, // always win the depth test against the bench underneath
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+    }),
   );
   mat.rotation.x = -Math.PI / 2;
-  mat.position.set(-2, 0.01, 3.6);
+  mat.position.set(-2, 0, 3.6);
   mat.receiveShadow = true;
 
   const pegTex = pegboardTexture();
@@ -662,4 +669,4 @@ renderer.setAnimationLoop(() => {
 });
 
 // Handy for debugging and automated checks.
-window.kaputle = { state, select, inspect, endInspect, movePart, toggleAll, isBusy: () => busy };
+window.kaputle = { state, select, inspect, endInspect, movePart, toggleAll, isBusy: () => busy, camera, controls };
