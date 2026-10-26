@@ -16,6 +16,15 @@ The first object is a realistic two-cell flashlight on a workbench. You can:
 
 The puzzle layer (faults, diagnostic tools, scoring, daily rotation) comes next.
 
+## Assembly guide player (`guide/`)
+
+A general player for step-by-step 3D assembly instructions. It reads one product file
+(`guide/products/bookshelf.json`): every part's shape, size, material and final position,
+plus the steps in order. From that alone it builds the parts, lays out the box contents,
+and animates each step, with a blue outline showing where parts go.
+
+To add a product, write a new JSON file and open `guide/?product=<name>`.
+
 ## Run it
 
 It's a static site with no build step. Serve the folder with any static server and open it:

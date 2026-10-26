@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kaputle Assembly Guide</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<link rel="stylesheet" href="guide.css">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-label="Kaputle">Kapu<span class="loose">t</span>le</span>
+      <span class="tag">Assembly guide</span>
+    </div>
+    <div class="top-actions">
+      <button type="button" class="btn" id="resetViewBtn">Reset view</button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <div class="viewport" id="viewport">
+      <canvas id="scene" aria-label="3D assembly scene. Use the step list to move through the instructions."></canvas>
+      <div class="labels" id="labels"></div>
+      <p class="hint">Drag to turn · Scroll or pinch to zoom · ← → keys step through</p>
+      <div class="loading" id="loading">Unpacking the box…</div>
+    </div>
+
+    <aside class="side">
+      <section class="job">
+        <p class="eyebrow">Assembly instructions</p>
+        <h1 id="productName">Loading…</h1>
+        <p class="spec" id="productSpec"></p>
+        <p class="spec" id="partCount"></p>
+      </section>
+
+      <section class="card" id="card" aria-live="polite"></section>
+
+      <section>
+        <h2 class="section-title">All steps</h2>
+        <ol class="step-list" id="stepList"></ol>
+      </section>
+
+      <section class="about">
+        <h2 class="section-title">How this works</h2>
+        <p>Nothing here is hand-animated. The player reads one file listing each part’s size, material and final position, plus the steps in order. It builds the 3D parts, lays out the box contents and animates every step from that file alone.</p>
+      </section>
+    </aside>
+  </main>
+</div>
+
+<script>
+  setTimeout(function () {
+    if (window.__guideReady) return;
+    var el = document.getElementById('loading');
+    if (el && !el.hidden) el.textContent = 'The 3D guide could not start. Try a recent version of Chrome, Safari, Edge or Firefox.';
+  }, 15000);
+</script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module" src="player.js"></script>
+</body>
+</html>

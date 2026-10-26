@@ -1,0 +1,751 @@
+{
+ "name": "Flat-pack bookshelf",
+ "spec": "60 \u00d7 90 \u00d7 28 cm \u00b7 birch plywood \u00b7 about 20 min",
+ "tools": [
+  "Hammer",
+  "Screwdriver"
+ ],
+ "parts": [
+  {
+   "id": "sideL",
+   "label": "A",
+   "name": "Side panel",
+   "shape": "board",
+   "size": [
+    1.8,
+    90,
+    28
+   ],
+   "pos": [
+    -29.1,
+    45,
+    0
+   ],
+   "material": "birch"
+  },
+  {
+   "id": "sideR",
+   "label": "A",
+   "name": "Side panel",
+   "shape": "board",
+   "size": [
+    1.8,
+    90,
+    28
+   ],
+   "pos": [
+    29.1,
+    45,
+    0
+   ],
+   "material": "birch"
+  },
+  {
+   "id": "bottom",
+   "label": "B",
+   "name": "Top / bottom panel",
+   "shape": "board",
+   "size": [
+    56.4,
+    1.8,
+    28
+   ],
+   "pos": [
+    0,
+    6.9,
+    0
+   ],
+   "material": "birch"
+  },
+  {
+   "id": "top",
+   "label": "B",
+   "name": "Top / bottom panel",
+   "shape": "board",
+   "size": [
+    56.4,
+    1.8,
+    28
+   ],
+   "pos": [
+    0,
+    89.1,
+    0
+   ],
+   "material": "birch"
+  },
+  {
+   "id": "shelf",
+   "label": "C",
+   "name": "Shelf",
+   "shape": "board",
+   "size": [
+    56.2,
+    1.8,
+    26
+   ],
+   "pos": [
+    0,
+    47,
+    0.8
+   ],
+   "material": "birch"
+  },
+  {
+   "id": "back",
+   "label": "D",
+   "name": "Back panel",
+   "shape": "board",
+   "size": [
+    60,
+    84,
+    0.3
+   ],
+   "pos": [
+    0,
+    48,
+    -14.15
+   ],
+   "material": "hardboard"
+  },
+  {
+   "id": "dowelL1",
+   "label": "E",
+   "name": "Wooden dowel",
+   "shape": "dowel",
+   "radius": 0.4,
+   "length": 3,
+   "pos": [
+    -28.2,
+    6.9,
+    -6
+   ],
+   "dir": [
+    -1,
+    0,
+    0
+   ],
+   "material": "dowel"
+  },
+  {
+   "id": "dowelL2",
+   "label": "E",
+   "name": "Wooden dowel",
+   "shape": "dowel",
+   "radius": 0.4,
+   "length": 3,
+   "pos": [
+    -28.2,
+    6.9,
+    6
+   ],
+   "dir": [
+    -1,
+    0,
+    0
+   ],
+   "material": "dowel"
+  },
+  {
+   "id": "dowelL3",
+   "label": "E",
+   "name": "Wooden dowel",
+   "shape": "dowel",
+   "radius": 0.4,
+   "length": 3,
+   "pos": [
+    -28.2,
+    89.1,
+    -6
+   ],
+   "dir": [
+    -1,
+    0,
+    0
+   ],
+   "material": "dowel"
+  },
+  {
+   "id": "dowelL4",
+   "label": "E",
+   "name": "Wooden dowel",
+   "shape": "dowel",
+   "radius": 0.4,
+   "length": 3,
+   "pos": [
+    -28.2,
+    89.1,
+    6
+   ],
+   "dir": [
+    -1,
+    0,
+    0
+   ],
+   "material": "dowel"
+  },
+  {
+   "id": "dowelR1",
+   "label": "E",
+   "name": "Wooden dowel",
+   "shape": "dowel",
+   "radius": 0.4,
+   "length": 3,
+   "pos": [
+    28.2,
+    6.9,
+    -6
+   ],
+   "dir": [
+    -1,
+    0,
+    0
+   ],
+   "material": "dowel"
+  },
+  {
+   "id": "dowelR2",
+   "label": "E",
+   "name": "Wooden dowel",
+   "shape": "dowel",
+   "radius": 0.4,
+   "length": 3,
+   "pos": [
+    28.2,
+    6.9,
+    6
+   ],
+   "dir": [
+    -1,
+    0,
+    0
+   ],
+   "material": "dowel"
+  },
+  {
+   "id": "dowelR3",
+   "label": "E",
+   "name": "Wooden dowel",
+   "shape": "dowel",
+   "radius": 0.4,
+   "length": 3,
+   "pos": [
+    28.2,
+    89.1,
+    -6
+   ],
+   "dir": [
+    -1,
+    0,
+    0
+   ],
+   "material": "dowel"
+  },
+  {
+   "id": "dowelR4",
+   "label": "E",
+   "name": "Wooden dowel",
+   "shape": "dowel",
+   "radius": 0.4,
+   "length": 3,
+   "pos": [
+    28.2,
+    89.1,
+    6
+   ],
+   "dir": [
+    -1,
+    0,
+    0
+   ],
+   "material": "dowel"
+  },
+  {
+   "id": "screwL1",
+   "label": "F",
+   "name": "Screw, 4 cm",
+   "shape": "screw",
+   "radius": 0.22,
+   "length": 4,
+   "pos": [
+    -30,
+    6.9,
+    -11
+   ],
+   "dir": [
+    1,
+    0,
+    0
+   ],
+   "material": "steel"
+  },
+  {
+   "id": "screwL2",
+   "label": "F",
+   "name": "Screw, 4 cm",
+   "shape": "screw",
+   "radius": 0.22,
+   "length": 4,
+   "pos": [
+    -30,
+    6.9,
+    11
+   ],
+   "dir": [
+    1,
+    0,
+    0
+   ],
+   "material": "steel"
+  },
+  {
+   "id": "screwL3",
+   "label": "F",
+   "name": "Screw, 4 cm",
+   "shape": "screw",
+   "radius": 0.22,
+   "length": 4,
+   "pos": [
+    -30,
+    89.1,
+    -11
+   ],
+   "dir": [
+    1,
+    0,
+    0
+   ],
+   "material": "steel"
+  },
+  {
+   "id": "screwL4",
+   "label": "F",
+   "name": "Screw, 4 cm",
+   "shape": "screw",
+   "radius": 0.22,
+   "length": 4,
+   "pos": [
+    -30,
+    89.1,
+    11
+   ],
+   "dir": [
+    1,
+    0,
+    0
+   ],
+   "material": "steel"
+  },
+  {
+   "id": "screwR1",
+   "label": "F",
+   "name": "Screw, 4 cm",
+   "shape": "screw",
+   "radius": 0.22,
+   "length": 4,
+   "pos": [
+    30,
+    6.9,
+    -11
+   ],
+   "dir": [
+    -1,
+    0,
+    0
+   ],
+   "material": "steel"
+  },
+  {
+   "id": "screwR2",
+   "label": "F",
+   "name": "Screw, 4 cm",
+   "shape": "screw",
+   "radius": 0.22,
+   "length": 4,
+   "pos": [
+    30,
+    6.9,
+    11
+   ],
+   "dir": [
+    -1,
+    0,
+    0
+   ],
+   "material": "steel"
+  },
+  {
+   "id": "screwR3",
+   "label": "F",
+   "name": "Screw, 4 cm",
+   "shape": "screw",
+   "radius": 0.22,
+   "length": 4,
+   "pos": [
+    30,
+    89.1,
+    -11
+   ],
+   "dir": [
+    -1,
+    0,
+    0
+   ],
+   "material": "steel"
+  },
+  {
+   "id": "screwR4",
+   "label": "F",
+   "name": "Screw, 4 cm",
+   "shape": "screw",
+   "radius": 0.22,
+   "length": 4,
+   "pos": [
+    30,
+    89.1,
+    11
+   ],
+   "dir": [
+    -1,
+    0,
+    0
+   ],
+   "material": "steel"
+  },
+  {
+   "id": "pinL1",
+   "label": "G",
+   "name": "Shelf pin",
+   "shape": "pin",
+   "radius": 0.25,
+   "length": 1.2,
+   "pos": [
+    -27.9,
+    45.85,
+    -9
+   ],
+   "dir": [
+    -1,
+    0,
+    0
+   ],
+   "material": "brass"
+  },
+  {
+   "id": "pinL2",
+   "label": "G",
+   "name": "Shelf pin",
+   "shape": "pin",
+   "radius": 0.25,
+   "length": 1.2,
+   "pos": [
+    -27.9,
+    45.85,
+    9
+   ],
+   "dir": [
+    -1,
+    0,
+    0
+   ],
+   "material": "brass"
+  },
+  {
+   "id": "pinR1",
+   "label": "G",
+   "name": "Shelf pin",
+   "shape": "pin",
+   "radius": 0.25,
+   "length": 1.2,
+   "pos": [
+    27.9,
+    45.85,
+    -9
+   ],
+   "dir": [
+    1,
+    0,
+    0
+   ],
+   "material": "brass"
+  },
+  {
+   "id": "pinR2",
+   "label": "G",
+   "name": "Shelf pin",
+   "shape": "pin",
+   "radius": 0.25,
+   "length": 1.2,
+   "pos": [
+    27.9,
+    45.85,
+    9
+   ],
+   "dir": [
+    1,
+    0,
+    0
+   ],
+   "material": "brass"
+  },
+  {
+   "id": "nail1",
+   "label": "H",
+   "name": "Nail",
+   "shape": "nail",
+   "radius": 0.07,
+   "length": 1.6,
+   "pos": [
+    -29.1,
+    12,
+    -14.3
+   ],
+   "dir": [
+    0,
+    0,
+    1
+   ],
+   "material": "steel"
+  },
+  {
+   "id": "nail2",
+   "label": "H",
+   "name": "Nail",
+   "shape": "nail",
+   "radius": 0.07,
+   "length": 1.6,
+   "pos": [
+    -29.1,
+    48,
+    -14.3
+   ],
+   "dir": [
+    0,
+    0,
+    1
+   ],
+   "material": "steel"
+  },
+  {
+   "id": "nail3",
+   "label": "H",
+   "name": "Nail",
+   "shape": "nail",
+   "radius": 0.07,
+   "length": 1.6,
+   "pos": [
+    -29.1,
+    84,
+    -14.3
+   ],
+   "dir": [
+    0,
+    0,
+    1
+   ],
+   "material": "steel"
+  },
+  {
+   "id": "nail4",
+   "label": "H",
+   "name": "Nail",
+   "shape": "nail",
+   "radius": 0.07,
+   "length": 1.6,
+   "pos": [
+    29.1,
+    12,
+    -14.3
+   ],
+   "dir": [
+    0,
+    0,
+    1
+   ],
+   "material": "steel"
+  },
+  {
+   "id": "nail5",
+   "label": "H",
+   "name": "Nail",
+   "shape": "nail",
+   "radius": 0.07,
+   "length": 1.6,
+   "pos": [
+    29.1,
+    48,
+    -14.3
+   ],
+   "dir": [
+    0,
+    0,
+    1
+   ],
+   "material": "steel"
+  },
+  {
+   "id": "nail6",
+   "label": "H",
+   "name": "Nail",
+   "shape": "nail",
+   "radius": 0.07,
+   "length": 1.6,
+   "pos": [
+    29.1,
+    84,
+    -14.3
+   ],
+   "dir": [
+    0,
+    0,
+    1
+   ],
+   "material": "steel"
+  }
+ ],
+ "steps": [
+  {
+   "title": "Stand up the left side panel",
+   "text": "Stand side panel A upright with its pre-drilled holes facing right.",
+   "tool": "Hands",
+   "parts": [
+    "sideL"
+   ],
+   "from": [
+    0,
+    25,
+    0
+   ],
+   "view": 35
+  },
+  {
+   "title": "Tap 4 dowels into the left side",
+   "text": "Push wooden dowels E into the four holes, then tap them with a hammer until half of each dowel sticks out.",
+   "tool": "Hammer",
+   "parts": [
+    "dowelL1",
+    "dowelL2",
+    "dowelL3",
+    "dowelL4"
+   ],
+   "slide": 4,
+   "view": 50
+  },
+  {
+   "title": "Fit the top and bottom panels",
+   "text": "Line up the holes in the ends of both B panels with the dowels and push them on.",
+   "tool": "Hands",
+   "parts": [
+    "bottom",
+    "top"
+   ],
+   "from": [
+    16,
+    0,
+    0
+   ],
+   "view": 35
+  },
+  {
+   "title": "Tap 4 dowels into the right ends",
+   "text": "Push dowels E into the holes in the right-hand ends of both B panels.",
+   "tool": "Hammer",
+   "parts": [
+    "dowelR1",
+    "dowelR2",
+    "dowelR3",
+    "dowelR4"
+   ],
+   "slide": 4,
+   "view": 50
+  },
+  {
+   "title": "Fit the right side panel",
+   "text": "Press the second side panel A onto the dowels, holes facing in.",
+   "tool": "Hands",
+   "parts": [
+    "sideR"
+   ],
+   "from": [
+    18,
+    0,
+    0
+   ],
+   "view": 40
+  },
+  {
+   "title": "Screw the four corners",
+   "text": "Drive two screws F through each side panel into the top and bottom. Snug, not overtightened.",
+   "tool": "Screwdriver",
+   "parts": [
+    "screwL1",
+    "screwL2",
+    "screwL3",
+    "screwL4",
+    "screwR1",
+    "screwR2",
+    "screwR3",
+    "screwR4"
+   ],
+   "slide": 5,
+   "spin": 6,
+   "view": 25
+  },
+  {
+   "title": "Push in the shelf pins",
+   "text": "Press four shelf pins G into the holes at the height you want the shelf.",
+   "tool": "Hands",
+   "parts": [
+    "pinL1",
+    "pinL2",
+    "pinR1",
+    "pinR2"
+   ],
+   "slide": 2.5,
+   "view": 25
+  },
+  {
+   "title": "Rest the shelf on the pins",
+   "text": "Slide shelf C in from the front until it sits flat on all four pins.",
+   "tool": "Hands",
+   "parts": [
+    "shelf"
+   ],
+   "from": [
+    0,
+    0,
+    34
+   ],
+   "view": 25
+  },
+  {
+   "title": "Place the back panel",
+   "text": "Turn the bookshelf around. Lay back panel D on the back edges, smooth side facing in.",
+   "tool": "Hands",
+   "parts": [
+    "back"
+   ],
+   "from": [
+    0,
+    0,
+    -30
+   ],
+   "view": 205
+  },
+  {
+   "title": "Nail on the back panel",
+   "text": "Tap six nails H through the back panel into the edges of the side panels.",
+   "tool": "Hammer",
+   "parts": [
+    "nail1",
+    "nail2",
+    "nail3",
+    "nail4",
+    "nail5",
+    "nail6"
+   ],
+   "slide": 3,
+   "view": 205
+  }
+ ]
+}
