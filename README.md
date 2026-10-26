@@ -1,26 +1,37 @@
 # Kaputle
 
-A daily fix-it puzzle. Every day there's a new broken thing: take it apart, find what's wrong, and fix it with the right tools.
+A daily fix-it puzzle. Every day there's a new broken thing: take it apart, find what's wrong, and fix it.
 
-## Play
+## Current stage: the 3D workbench
 
-Open `index.html` in a browser. It's a single file, with no build step and no backend.
+The first object is a realistic two-cell flashlight on a workbench. You can:
 
-## How it works
+- Rotate and zoom around it
+- Take it apart in a real order: unscrew the tail cap before the batteries come out, take the head off before the bulb
+- Put every part back, with the same rules in reverse
+- Inspect any visible part up close, with a short explanation of what it does and what to look for
 
-1. Inspect parts to find clues.
-2. Pick a tool to try on the part.
-3. Each try adds a square to your result:
-   - 🟩 fixed it
-   - 🟨 right part, wrong tool
-   - ⬜ that part was fine
-4. After the fix, learn how the object works and share your result.
+The puzzle layer (faults, diagnostic tools, scoring, daily rotation) comes next.
 
-Streaks are stored only in the player's browser. Nothing is collected.
+## Run it
 
-## Roadmap
+It's a static site with no build step. Serve the folder with any static server and open it:
 
-- 3D objects you can take apart, inspect, and reassemble (starting with a flashlight)
-- Diagnostic tools like a multimeter and magnifier
-- Several possible faults per object, so puzzles stay fresh every day
-- Kids and adult difficulty modes
+```sh
+python3 -m http.server 8000
+# then open http://localhost:8000
+```
+
+Opening `index.html` directly from disk won't work, because browsers block ES modules on `file://`.
+
+three.js is loaded from jsDelivr through an import map in `index.html`.
+
+## Code
+
+| File | What it does |
+|---|---|
+| `src/flashlight.js` | Builds the flashlight model, part by part |
+| `src/parts.js` | Part names, descriptions, how each part comes off, where it rests on the bench |
+| `src/textures.js` | Procedural textures: cutting mat, wood, pegboard, knurling, battery wrapper |
+| `src/main.js` | Scene, camera, take-apart animations, inspecting, and the side panel |
+| `prototype/2d.html` | The first 2D emoji prototype |
