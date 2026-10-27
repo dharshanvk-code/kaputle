@@ -153,19 +153,23 @@ function partExtent(p) {
 }
 
 // ---------- the parts pile: generated, not authored ----------
-// Boards lie flat, long edge front-to-back, stacked largest first. Hardware sits in a tray,
-// one row per kind of part.
+// Boards lie flat, long edge front-to-back, stacked largest first. Hardware sits in a tray in
+// front of the pile, one row per kind of part. The floor in front of the build stays clear,
+// so parts can be set out there to be worked on.
 const PILE_X = 92;
-const TRAY = { x: 44, z: 40, w: 30, d: 22 }; // depth grows with the number of hardware kinds
+const TRAY = { x: PILE_X, z: 40, w: 30, d: 22 }; // depth grows with the number of hardware kinds
 
 function layOut(parts) {
   const poses = {};
-  const boards = parts.filter((p) => p.shape === 'board');
+  // Little boards (nut inserts, spacers) belong in the hardware tray, not on the board pile.
+  const isSmall = (p) => p.shape === 'board' && Math.max(...p.size) < 6;
+  const boards = parts.filter((p) => p.shape === 'board' && !isSmall(p));
   boards.sort((a, b) => {
     const area = (p) => { const s = [...p.size].sort((m, n) => n - m); return s[0] * s[1]; };
     return area(b) - area(a);
   });
   let height = 0;
+  let pileFront = 0;
   for (const p of boards) {
     const size = new V3(...p.size);
     const dims = ['x', 'y', 'z'];
@@ -181,11 +185,12 @@ function layOut(parts) {
     }
     poses[p.id] = { pos: new V3(PILE_X, height + ext.y / 2 + 0.02, 4), quat: q };
     height += ext.y + 0.05;
+    pileFront = Math.max(pileFront, 4 + ext.z / 2);
   }
 
   const groups = new Map();
   for (const p of parts) {
-    if (p.shape === 'board') continue;
+    if (p.shape === 'board' && !isSmall(p)) continue;
     if (!groups.has(p.name)) groups.set(p.name, []);
     groups.get(p.name).push(p);
   }
@@ -193,16 +198,17 @@ function layOut(parts) {
   let row = 0;
   const rows = groups.size;
   TRAY.d = Math.max(22, rows * 4);
+  TRAY.z = pileFront + TRAY.d / 2 + 10;
   for (const [, list] of groups) {
     const z = TRAY.z - TRAY.d / 2 + (TRAY.d / (rows + 1)) * (row + 1);
     list.forEach((p, i) => {
       const span = TRAY.w - 6;
       const x = TRAY.x - span / 2 + (list.length === 1 ? span / 2 : (span / (list.length - 1)) * i);
-      const r = p.shape === 'screw' || p.shape === 'nail' ? p.radius * 2.6 : p.radius;
+      const r = isSmall(p) ? p.size[1] / 2 : p.shape === 'screw' || p.shape === 'nail' ? p.radius * 2.6 : p.radius;
       const pos = new V3(x, 0.9 + r, z);
       // Headed parts are built from the head, so shift them so the part is centred in its slot.
       if (p.shape === 'screw' || p.shape === 'nail') pos.x += p.length / 2;
-      poses[p.id] = { pos, quat: lying.clone() };
+      poses[p.id] = { pos, quat: isSmall(p) ? new Q() : lying.clone() };
     });
     row++;
   }
@@ -226,9 +232,11 @@ function buildTray() {
 // ---------- tweening ----------
 const tweens = new Set();
 const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
-let speed = 1;
+let speed = 1; // short-lived speed-up when jumping between steps
+let playback = 1; // the viewer's chosen speed: 1, 0.5 or 0.25
+try { playback = Number(localStorage.getItem('guide:playback')) || 1; } catch { /* storage is optional */ }
 function tween(duration, fn) {
-  const d = reduceMotion ? Math.min(duration, 0.12) : duration * speed;
+  const d = reduceMotion ? Math.min(duration, 0.12) : (duration * speed) / playback;
   return new Promise((resolve) => tweens.add({ t: 0, d, fn, resolve }));
 }
 function stepTweens(dt) {
@@ -293,6 +301,78 @@ function approachOffset(step, p, t) {
   return new V3(0, 20, 0);
 }
 
+// ---------- setting parts out to work on ----------
+// When a step fits hardware to a part that's still in the pile, that part first moves out onto
+// the floor in front of the build, turned so the side being worked on faces up.
+const rest = {}; // where each unplaced part waits: its pile pose, or where it was set out
+const staged = []; // stack of { step, ids, depth }, one entry per step that set parts out
+const isPlaced = (id) => objects[id].parent !== scene;
+
+function stagingQuat(parentId, children) {
+  const qParent = new Q();
+  finalM[parentId].decompose(new V3(), qParent, new V3());
+  const toParent = qParent.clone().invert();
+  const avg = new V3();
+  for (const c of children) avg.add(canonicalAxis(c).clone().applyQuaternion(assembledQuat(c)).applyQuaternion(toParent));
+  // Hardware going in from one side: turn that side up. Mixed sides (both ends of a shelf): lie flat.
+  let q = avg.length() > 0.5 ? new Q().setFromUnitVectors(avg.normalize(), DOWN) : pile[parentId].quat.clone();
+  let ext = partExtent(partById(parentId)).applyQuaternion(q);
+  ext.set(Math.abs(ext.x), Math.abs(ext.y), Math.abs(ext.z));
+  if (ext.z > ext.x) {
+    q = new Q().setFromAxisAngle(UP, Math.PI / 2).multiply(q);
+    ext = new V3(ext.z, ext.y, ext.x);
+  }
+  return { quat: q, ext };
+}
+
+function moveTo(id, pose, duration = 1.1) {
+  const o = objects[id];
+  const p0 = o.position.clone();
+  const q0 = o.quaternion.clone();
+  return tween(duration, (k) => {
+    const e = ease(k);
+    o.position.lerpVectors(p0, pose.pos, e);
+    o.position.y += Math.sin(Math.PI * e) * 18;
+    o.quaternion.slerpQuaternions(q0, pose.quat, e);
+  });
+}
+
+async function prepareStep(i) {
+  const step = product.steps[i];
+  if (!step || step.type === 'flip' || staged.some((s) => s.step === i)) return;
+  const groups = new Map();
+  for (const id of step.parts) {
+    const p = partById(id);
+    if (!p.parent || isPlaced(p.parent) || rest[p.parent] !== pile[p.parent]) continue;
+    if (!groups.has(p.parent)) groups.set(p.parent, []);
+    groups.get(p.parent).push(p);
+  }
+  if (!groups.size) return;
+  const layout = [...groups].map(([id, kids]) => ({ id, ...stagingQuat(id, kids) }));
+  const width = layout.reduce((w, l) => w + l.ext.x, 0) + 10 * (layout.length - 1);
+  const depth = Math.max(...layout.map((l) => l.ext.z));
+  const rowZ = assembledBox.max.z + 14 + staged.reduce((z, s) => z + s.depth + 8, 0) + depth / 2;
+  let x = -width / 2;
+  const moves = layout.map((l) => {
+    const pose = { pos: new V3(x + l.ext.x / 2, l.ext.y / 2 + 0.02, rowZ), quat: l.quat };
+    x += l.ext.x + 10;
+    rest[l.id] = pose;
+    return moveTo(l.id, pose);
+  });
+  staged.push({ step: i, ids: layout.map((l) => l.id), depth });
+  await Promise.all(moves);
+}
+
+async function unprepareStep(i) {
+  const entry = staged.at(-1);
+  if (!entry || entry.step !== i) return;
+  staged.pop();
+  await Promise.all(entry.ids.filter((id) => !isPlaced(id)).map((id) => {
+    rest[id] = pile[id];
+    return moveTo(id, pile[id], 0.9);
+  }));
+}
+
 // Hand the part to its holder and snap it to its exact pose there.
 function settle(p) {
   const o = objects[p.id];
@@ -302,7 +382,7 @@ function settle(p) {
 
 async function animatePart(step, p, t, forward) {
   const o = objects[p.id];
-  const s = pile[p.id];
+  const s = rest[p.id];
   if (!forward) scene.attach(o);
   const appr = t.pos.clone().add(approachOffset(step, p, t));
   const lift = p.shape === 'board' ? 22 : 10;
@@ -373,7 +453,15 @@ async function playStep(i, forward) {
 function clearGhosts() {
   for (const g of ghosts) g.removeFromParent();
   ghosts = [];
+  markers = [];
 }
+
+// A soft ring on the spot where each piece of hardware goes in.
+const markerMat = new THREE.MeshBasicMaterial({
+  color: 0xff6a1a, transparent: true, opacity: 0.7, depthWrite: false, side: THREE.DoubleSide,
+  polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4,
+});
+let markers = [];
 
 function showGhosts() {
   clearGhosts();
@@ -391,6 +479,18 @@ function showGhosts() {
       m.raycast = () => {};
       g.add(m);
     });
+    if (p.shape !== 'board') {
+      const inner = Math.max(0.55, p.radius * 1.5);
+      const ring = new THREE.Mesh(new THREE.RingGeometry(inner, inner + Math.max(0.35, p.radius * 0.7), 40), markerMat);
+      ring.rotation.x = -Math.PI / 2; // face along the part's axis
+      // Sit just outside the surface, on the side the part comes in from.
+      const inward = p.shape === 'screw' || p.shape === 'nail' ? -1 : 1;
+      ring.position.y = -inward * 0.06;
+      ring.renderOrder = 11;
+      ring.raycast = () => {};
+      g.add(ring);
+      markers.push(ring);
+    }
     holderOf(p).add(g);
     holderMatrix(p).decompose(g.position, g.quaternion, g.scale);
     ghosts.push(g);
@@ -438,7 +538,9 @@ function stepBox(i) {
 
 let assembledBox = new THREE.Box3();
 function overviewBox() {
-  return assembledBox.clone().expandByPoint(new V3(PILE_X + 30, 0, 50)).expandByPoint(new V3(PILE_X - 30, 10, -40));
+  return assembledBox.clone()
+    .expandByPoint(new V3(PILE_X + 30, 0, -40))
+    .expandByPoint(new V3(TRAY.x - TRAY.w / 2, 10, TRAY.z + TRAY.d / 2));
 }
 
 // Steps that add a board show the whole piece so far; hardware steps zoom in on the joints.
@@ -451,6 +553,13 @@ function frameCurrent(duration = 1) {
     return fit(box, step.view ?? 30, duration);
   }
   const box = stepBox(done);
+  // Hardware fitted to a part that's been set out: show the whole part, not just the joints.
+  for (const id of step.parts) {
+    const parent = partById(id).parent;
+    if (parent && !isPlaced(parent)) box.union(new THREE.Box3().setFromObject(objects[parent]));
+    // A part that was set out earlier is picked up from there, so keep it in view too.
+    if (!isPlaced(id) && rest[id] !== pile[id]) box.union(new THREE.Box3().setFromObject(objects[id]));
+  }
   const addsBoard = step.parts.some((id) => partById(id).shape === 'board');
   if (addsBoard && assembly.children.length) box.union(new THREE.Box3().setFromObject(assembly));
   if (step.lower) box.max.y += step.lower;
@@ -465,6 +574,7 @@ async function next() {
   render();
   await playStep(done, true);
   done++;
+  await prepareStep(done);
   busy = false;
   showGhosts();
   render();
@@ -475,6 +585,8 @@ async function back() {
   if (busy || done === 0) return;
   busy = true;
   clearGhosts();
+  render();
+  await unprepareStep(done); // leaving this step: anything it set out goes back to the pile
   done--;
   render();
   frameCurrent(0.7);
@@ -531,6 +643,11 @@ function needs(step) {
   }).join('');
 }
 
+function speedControl() {
+  const opt = (v, label) => `<button type="button" data-speed="${v}" aria-pressed="${playback === v}">${label}</button>`;
+  return `<div class="speed" role="group" aria-label="Playback speed"><span>Speed</span>${opt(1, '1×')}${opt(0.5, '½×')}${opt(0.25, '¼×')}</div>`;
+}
+
 function render() {
   const total = product.steps.length;
   const card = $('card');
@@ -561,7 +678,8 @@ function render() {
         <button type="button" class="btn primary" data-act="next" ${busy ? 'disabled' : ''}>Do this step</button>
         <button type="button" class="btn ghost" data-act="${autoplay ? 'stop' : 'play'}" ${busy && !autoplay ? 'disabled' : ''}>${autoplay ? 'Pause' : 'Play all'}</button>
       </div>
-      ${step.type === 'flip' ? '' : '<p class="reason">The blue outline shows where the parts go.</p>'}`;
+      ${step.type === 'flip' ? '' : '<p class="reason">The blue outline shows where the parts go.</p>'}
+      ${speedControl()}`;
   }
   $('stepList').innerHTML = product.steps.map((s, n) =>
     `<li><button type="button" class="step-row ${n < done ? 'done' : n === done ? 'now' : ''}" data-step="${n}" ${busy ? 'disabled' : ''}>
@@ -569,6 +687,13 @@ function render() {
 }
 
 $('card').addEventListener('click', (e) => {
+  const sp = e.target.closest('[data-speed]')?.dataset.speed;
+  if (sp) {
+    playback = Number(sp);
+    try { localStorage.setItem('guide:playback', sp); } catch { /* storage is optional */ }
+    render();
+    return;
+  }
   const act = e.target.closest('[data-act]')?.dataset.act;
   if (act === 'next') next();
   if (act === 'back') back();
@@ -634,6 +759,8 @@ function updatePulse(t) {
     });
   }
   ghostMat.opacity = 0.2 + 0.2 * k;
+  markerMat.opacity = 0.45 + 0.45 * k;
+  for (const m of markers) m.scale.setScalar(1 + 0.18 * k);
 }
 
 // ---------- theme, sizing, loop ----------
@@ -686,6 +813,7 @@ async function start() {
     const q = assembledQuat(p);
     finalM[p.id] = new THREE.Matrix4().compose(new V3(...p.pos), q, new V3(1, 1, 1));
     pile[p.id] = poses[p.id];
+    rest[p.id] = pile[p.id];
     o.position.copy(pile[p.id].pos);
     o.quaternion.copy(pile[p.id].quat);
     scene.add(o);
@@ -712,7 +840,7 @@ async function start() {
   controls.target.copy(sphere.center);
   camera.position.copy(sphere.center).addScaledVector(viewDir(30), sphere.radius * 3);
   fit(box, 30, reduceMotion ? 0.01 : 1.4);
-  showGhosts();
+  busy = true;
   render();
 
   const clock = new THREE.Clock();
@@ -730,6 +858,14 @@ async function start() {
       window.__guideReady = true;
     }
   });
+
+  // After the opening shot, set out whatever the first step works on.
+  await wait(1.4);
+  await prepareStep(0);
+  busy = false;
+  showGhosts();
+  render();
+  if (staged.length) frameCurrent(1);
 }
 
 start();

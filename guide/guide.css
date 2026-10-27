@@ -110,6 +110,14 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
 .reason { font-size: 13px; color: var(--ink-soft); }
+.speed { display: flex; align-items: center; gap: 4px; font: 600 12px var(--font-mono); color: var(--ink-soft); }
+.speed span { margin-right: 4px; }
+.speed button {
+  font: 600 12px var(--font-mono); color: var(--ink-soft); background: none; cursor: pointer;
+  border: 1px solid transparent; border-radius: 6px; padding: 2px 8px;
+}
+.speed button:hover { color: var(--ink); }
+.speed button[aria-pressed="true"] { color: var(--ink); background: var(--panel); border-color: var(--line); }
 .reason::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; background: var(--ghost); opacity: 0.6; vertical-align: -1px; }
 
 .section-title { font: 600 12px var(--font-mono); text-transform: uppercase; letter-spacing: 1.4px; color: var(--ink-soft); margin: 0 0 8px; }
