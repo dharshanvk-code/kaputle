@@ -87,6 +87,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .eyebrow { margin: 0 0 4px; font: 500 11px var(--font-mono); text-transform: uppercase; letter-spacing: 1.4px; color: var(--ink-soft); }
 .job h1 { font: 700 30px/1.05 var(--font-display); margin: 0; letter-spacing: -0.4px; }
 .spec { margin: 4px 0 0; font: 500 13px var(--font-mono); color: var(--ink-soft); }
+.source a { color: var(--accent); text-underline-offset: 3px; }
 
 .card {
   border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line)); border-radius: 12px;

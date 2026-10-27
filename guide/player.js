@@ -602,8 +602,8 @@ function updateLabels() {
   if (!step) return;
   for (const id of wanted) {
     const p = product.parts.find((q) => q.id === id);
-    const key = p.label;
-    if (shown.has(key)) continue; // one label per kind of part
+    const key = p.label || p.id; // one label per kind of hardware; every unlabelled board gets its own
+    if (shown.has(key)) continue;
     shown.add(key);
     let el = labelEls[key];
     if (!el) {
@@ -612,7 +612,7 @@ function updateLabels() {
       $('labels').append(el);
       labelEls[key] = el;
     }
-    el.textContent = `${p.label} · ${p.name}`;
+    el.textContent = p.label ? `${p.label} · ${p.name}` : p.name;
     _p.copy(objects[id].position);
     _p.y += 3;
     _p.project(camera);
@@ -668,6 +668,16 @@ async function start() {
   $('productName').textContent = product.name;
   $('productSpec').textContent = product.spec;
   $('partCount').textContent = `${product.parts.length} parts · ${product.steps.length} steps`;
+  if (product.source?.url) {
+    // The manual this guide was built from, linked rather than copied.
+    const link = document.createElement('a');
+    link.href = product.source.url;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.textContent = `Based on: ${product.source.label || 'the original manual'} ↗`;
+    $('productSource').replaceChildren(link);
+    $('productSource').hidden = false;
+  }
 
   const poses = layOut(product.parts);
   for (const p of product.parts) {
