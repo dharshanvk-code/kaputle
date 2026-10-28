@@ -649,6 +649,7 @@ function speedControl() {
 }
 
 function render() {
+  renderInfo();
   const total = product.steps.length;
   const card = $('card');
   const bar = product.steps.map((s, n) => `<span class="${n < done ? 'done' : n === done ? 'now' : ''}"></span>`).join('');
@@ -728,7 +729,7 @@ function updateLabels() {
   for (const id of wanted) {
     const p = product.parts.find((q) => q.id === id);
     const key = p.label || p.id; // one label per kind of hardware; every unlabelled board gets its own
-    if (shown.has(key)) continue;
+    if (shown.has(key) || id === picked) continue; // the info card already names a tapped part
     shown.add(key);
     let el = labelEls[key];
     if (!el) {
@@ -747,15 +748,126 @@ function updateLabels() {
   }
 }
 
-// Gentle pulse on the parts waiting in the pile for this step.
+// ---------- tap a part to see what it is ----------
+const coarsePointer = matchMedia('(pointer: coarse)').matches;
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+const _c = new V3();
+let picked = null;
+const stepOf = {}; // part id -> index of the step that fits it
+
+function screenPoint(id, rect) {
+  new THREE.Box3().setFromObject(objects[id]).getCenter(_c).project(camera);
+  return { x: (_c.x * 0.5 + 0.5) * rect.width, y: (-_c.y * 0.5 + 0.5) * rect.height, behind: _c.z > 1 };
+}
+
+function pick(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const x = clientX - rect.left;
+  const y = clientY - rect.top;
+  ndc.set((x / rect.width) * 2 - 1, -(y / rect.height) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  const hit = raycaster.intersectObjects(Object.values(objects), true).find((h) => h.object.userData.part);
+  const hitId = hit?.object.userData.part ?? null;
+  if (hitId && partById(hitId).shape !== 'board') return hitId;
+  // Hardware is tiny, so a near miss still counts, and it wins over the board behind it.
+  let best = null;
+  let bestD = coarsePointer ? 30 : 16;
+  for (const p of product.parts) {
+    if (p.shape === 'board') continue;
+    const sp = screenPoint(p.id, rect);
+    const d = Math.hypot(sp.x - x, sp.y - y);
+    if (!sp.behind && d < bestD) {
+      bestD = d;
+      best = p.id;
+    }
+  }
+  return best || hitId;
+}
+
+function partStatus(id) {
+  const n = stepOf[id];
+  if (n < done) return `Fitted in step ${n + 1}`;
+  if (n === done) return 'Needed for this step';
+  if (!isPlaced(id) && rest[id] !== pile[id]) return `Set out, waiting for step ${n + 1}`;
+  if (isPlaced(id)) return `Fitted to the ${partById(partById(id).parent).name.toLowerCase()}`;
+  return 'Still in the box';
+}
+
+function renderInfo() {
+  const el = $('partInfo');
+  if (!picked) {
+    el.hidden = true;
+    return;
+  }
+  const p = partById(picked);
+  const n = stepOf[picked];
+  const same = product.parts.filter((q) => q.name === p.name && (q.label || '') === (p.label || '')).length;
+  el.innerHTML = `
+    <button type="button" class="close" data-info="close" aria-label="Close">×</button>
+    <p class="info-name">${p.label ? `<span class="letter">${p.label}</span>` : ''}${p.name}</p>
+    <p class="info-meta">${same > 1 ? `1 of ${same} · ` : ''}${partStatus(picked)}</p>
+    <p class="info-step">Step ${n + 1}: ${product.steps[n].title}</p>
+    ${n !== done ? `<button type="button" class="btn small" data-info="go" ${busy ? 'disabled' : ''}>Go to step ${n + 1}</button>` : ''}`;
+  el.hidden = false;
+  placeInfo();
+}
+
+// Keep the card beside the part as the camera moves, inside the viewport.
+function placeInfo() {
+  if (!picked) return;
+  const el = $('partInfo');
+  const rect = canvas.getBoundingClientRect();
+  const sp = screenPoint(picked, rect);
+  const w = el.offsetWidth;
+  const h = el.offsetHeight;
+  let x = sp.x + 16;
+  if (x + w > rect.width - 10) x = sp.x - w - 16;
+  x = Math.max(10, Math.min(x, rect.width - w - 10));
+  const y = Math.max(10, Math.min(sp.y - h / 2, rect.height - h - 10));
+  el.style.transform = `translate(${x}px, ${y}px)`;
+}
+
+function selectPart(id) {
+  picked = id;
+  renderInfo();
+}
+
+let down = null;
+canvas.addEventListener('pointerdown', (e) => {
+  down = { x: e.clientX, y: e.clientY, t: performance.now() };
+});
+canvas.addEventListener('pointerup', (e) => {
+  if (!down || !product) return;
+  const tap = Math.hypot(e.clientX - down.x, e.clientY - down.y) < 6 && performance.now() - down.t < 500;
+  down = null;
+  if (tap) selectPart(pick(e.clientX, e.clientY));
+});
+canvas.addEventListener('pointermove', (e) => {
+  if (e.pointerType !== 'mouse' || e.buttons || !product) return;
+  canvas.style.cursor = pick(e.clientX, e.clientY) ? 'pointer' : '';
+});
+$('partInfo').addEventListener('click', (e) => {
+  const act = e.target.closest('[data-info]')?.dataset.info;
+  if (act === 'close') selectPart(null);
+  if (act === 'go') jumpTo(stepOf[picked]);
+});
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') selectPart(null);
+});
+
+// Gentle pulse on the parts waiting in the pile for this step; a steady blue on a tapped part.
 const PULSE = new THREE.Color(0x5c2a0a);
+const PICKED = new THREE.Color(0x1d3d66).multiplyScalar(0.55);
 function updatePulse(t) {
   const step = busy ? null : product.steps[done];
   const wanted = new Set(step ? step.parts : []);
   const k = 0.5 + 0.5 * Math.sin(t * 4);
   for (const [id, o] of Object.entries(objects)) {
     o.traverse((m) => {
-      if (m.isMesh && m.userData.part === id && m.material.emissive) m.material.emissive.copy(PULSE).multiplyScalar(wanted.has(id) ? 0.4 + 0.6 * k : 0);
+      if (!m.isMesh || m.userData.part !== id || !m.material.emissive) return;
+      if (id === picked) m.material.emissive.copy(PICKED);
+      else m.material.emissive.copy(PULSE).multiplyScalar(wanted.has(id) ? 0.4 + 0.6 * k : 0);
     });
   }
   ghostMat.opacity = 0.2 + 0.2 * k;
@@ -806,6 +918,7 @@ async function start() {
     $('productSource').hidden = false;
   }
 
+  product.steps.forEach((st, n) => st.parts.forEach((id) => (stepOf[id] = n)));
   const poses = layOut(product.parts);
   for (const p of product.parts) {
     const o = buildPart(p);
@@ -851,6 +964,7 @@ async function start() {
     controls.update();
     updatePulse(clock.elapsedTime);
     updateLabels();
+    placeInfo();
     renderer.render(scene, camera);
     if (first) {
       first = false;
@@ -871,4 +985,4 @@ async function start() {
 start();
 
 // Handy for debugging and automated checks.
-window.guide = { next, back, jumpTo, playAll, isBusy: () => busy, done: () => done, camera, controls };
+window.guide = { next, back, jumpTo, playAll, selectPart, screenPointOf: (id) => screenPoint(id, canvas.getBoundingClientRect()), isBusy: () => busy, done: () => done, camera, controls };

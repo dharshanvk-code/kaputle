@@ -26,7 +26,8 @@
     <div class="viewport" id="viewport">
       <canvas id="scene" aria-label="3D assembly scene. Use the step list to move through the instructions."></canvas>
       <div class="labels" id="labels"></div>
-      <p class="hint">Drag to turn · Scroll or pinch to zoom · ← → keys step through</p>
+      <div class="part-info" id="partInfo" role="dialog" aria-label="Part details" hidden></div>
+      <p class="hint">Drag to turn · Scroll or pinch to zoom · Tap a part to see what it is</p>
       <div class="loading" id="loading">Unpacking the box…</div>
     </div>
 
