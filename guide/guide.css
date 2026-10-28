@@ -69,7 +69,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   border-radius: 6px; padding: 2px 7px; white-space: nowrap;
 }
 .part-info {
-  position: absolute; left: 0; top: 0; width: 230px; max-width: calc(100% - 20px);
+  position: absolute; left: 0; top: 0; z-index: 2; width: 256px; max-width: calc(100% - 20px);
   background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.14); padding: 10px 12px 12px;
   display: flex; flex-direction: column; gap: 4px; align-items: flex-start;
@@ -78,6 +78,11 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .part-info .info-name { display: flex; align-items: center; gap: 8px; font-weight: 600; padding-right: 18px; }
 .part-info .info-meta { font: 500 12px var(--font-mono); color: var(--ink-soft); }
 .part-info .info-step { font-size: 13px; color: var(--ink-soft); }
+.part-info .info-diagram { width: 100%; height: auto; border-radius: 6px; margin: 4px 0 2px; background: var(--bg); }
+.part-info .info-details { margin: 2px 0; display: grid; gap: 2px; font-size: 13px; width: 100%; }
+.part-info .info-details div { display: grid; grid-template-columns: 82px 1fr; gap: 8px; }
+.part-info .info-details dt { color: var(--ink-soft); }
+.part-info .info-details dd { margin: 0; }
 .part-info .btn { margin-top: 6px; }
 .part-info .close {
   position: absolute; top: 4px; right: 6px; border: 0; background: none; cursor: pointer;

@@ -794,6 +794,117 @@ function partStatus(id) {
   return 'Still in the box';
 }
 
+// A small line drawing of the finished product with one part filled in, like a manual's
+// parts diagram. Drawn once per part into an image and cached.
+const DIAGRAM_W = 460;
+const DIAGRAM_H = 260;
+const diagramCache = {};
+let diagramTarget = null;
+
+function diagramFor(id) {
+  if (diagramCache[id]) return diagramCache[id];
+  const cs = getComputedStyle(document.documentElement);
+  const accent = new THREE.Color(cs.getPropertyValue('--accent').trim() || '#d9531c');
+  const ink = new THREE.Color(cs.getPropertyValue('--ink-soft').trim() || '#5a636e');
+  const paper = new THREE.Color(cs.getPropertyValue('--bg').trim() || '#eceff2');
+  const pickedPart = partById(id);
+  const focus = pickedPart.shape === 'board' ? id : pickedPart.parent; // hardware: show the board it goes into
+  const mini = new THREE.Scene();
+  const sun = new THREE.DirectionalLight(0xffffff, 1.4);
+  sun.position.set(-1, 2, 1.5);
+  mini.add(new THREE.AmbientLight(0xffffff, 1.6), sun);
+  const offset = { polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 };
+  const plain = new THREE.MeshLambertMaterial({ color: paper.clone().lerp(new THREE.Color(0xffffff), 0.6), ...offset });
+  const lit = new THREE.MeshLambertMaterial({ color: accent, ...offset });
+  const line = new THREE.LineBasicMaterial({ color: ink });
+  const geos = [];
+  for (const p of product.parts) {
+    if (p.shape !== 'board') continue;
+    const geo = new THREE.BoxGeometry(...p.size);
+    const edges = new THREE.EdgesGeometry(geo);
+    geos.push(geo, edges);
+    const g = new THREE.Group();
+    g.add(new THREE.Mesh(geo, p.id === focus ? lit : plain), new THREE.LineSegments(edges, line));
+    finalM[p.id].decompose(g.position, g.quaternion, g.scale);
+    mini.add(g);
+  }
+  if (pickedPart.shape !== 'board') {
+    // Mark the spot where this piece of hardware goes.
+    const r = Math.max(2.5, assembledBox.getSize(new V3()).length() / 32);
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(r, 20, 12), new THREE.MeshBasicMaterial({ color: 0x15181c, depthTest: false, transparent: true, opacity: 0.85 }));
+    dot.renderOrder = 5;
+    dot.position.set(...pickedPart.pos);
+    geos.push(dot.geometry);
+    mini.add(dot);
+  }
+  const cam = new THREE.PerspectiveCamera(30, DIAGRAM_W / DIAGRAM_H, 1, 5000);
+  const sphere = assembledBox.getBoundingSphere(new THREE.Sphere());
+  const vf = THREE.MathUtils.degToRad(15);
+  const hf = Math.atan(Math.tan(vf) * cam.aspect);
+  cam.position.copy(sphere.center).addScaledVector(viewDir(32, 26), (sphere.radius / Math.sin(Math.min(vf, hf))) * 0.74);
+  cam.lookAt(sphere.center);
+  diagramTarget ||= new THREE.WebGLRenderTarget(DIAGRAM_W, DIAGRAM_H, { samples: 4 });
+  const prevTarget = renderer.getRenderTarget();
+  const prevTone = renderer.toneMapping;
+  const clear = new THREE.Color();
+  renderer.getClearColor(clear);
+  const clearAlpha = renderer.getClearAlpha();
+  renderer.toneMapping = THREE.NoToneMapping;
+  renderer.setRenderTarget(diagramTarget);
+  renderer.setClearColor(paper, 1);
+  renderer.clear();
+  renderer.render(mini, cam);
+  const px = new Uint8Array(DIAGRAM_W * DIAGRAM_H * 4);
+  renderer.readRenderTargetPixels(diagramTarget, 0, 0, DIAGRAM_W, DIAGRAM_H, px);
+  renderer.setRenderTarget(prevTarget);
+  renderer.toneMapping = prevTone;
+  renderer.setClearColor(clear, clearAlpha);
+  for (const g of geos) g.dispose();
+  // Render targets come out upside down and in linear colour; flip and convert for the <img>.
+  const c = document.createElement('canvas');
+  c.width = DIAGRAM_W;
+  c.height = DIAGRAM_H;
+  const ctx = c.getContext('2d');
+  const img = ctx.createImageData(DIAGRAM_W, DIAGRAM_H);
+  const toSrgb = (v) => {
+    const l = v / 255;
+    return Math.round(255 * (l <= 0.0031308 ? l * 12.92 : 1.055 * Math.pow(l, 1 / 2.4) - 0.055));
+  };
+  for (let y = 0; y < DIAGRAM_H; y++) {
+    for (let x = 0; x < DIAGRAM_W * 4; x += 4) {
+      const src = (DIAGRAM_H - 1 - y) * DIAGRAM_W * 4 + x;
+      const dst = y * DIAGRAM_W * 4 + x;
+      img.data[dst] = toSrgb(px[src]);
+      img.data[dst + 1] = toSrgb(px[src + 1]);
+      img.data[dst + 2] = toSrgb(px[src + 2]);
+      img.data[dst + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return (diagramCache[id] = c.toDataURL());
+}
+
+const round = (n) => (n >= 10 ? Math.round(n) : Math.round(n * 10) / 10);
+
+function partDetails(p) {
+  const rows = [];
+  if (p.shape === 'board') {
+    const [a, b, c] = [...p.size].sort((m, n) => n - m);
+    rows.push(['Size', `about ${round(a)} × ${round(b)} × ${round(c)} cm`]);
+    const fitted = new Map();
+    for (const q of product.parts) {
+      if (q.parent !== p.id) continue;
+      const k = `${q.label ? `${q.label} ` : ''}${q.name}`;
+      fitted.set(k, (fitted.get(k) || 0) + 1);
+    }
+    if (fitted.size) rows.push(['Fitted to it', [...fitted].map(([k, n]) => `${n} × ${k}`).join(', ')]);
+  } else {
+    rows.push(['Size', `about ${round(p.length)} cm long`]);
+    if (p.parent) rows.push(['Goes into', `the ${partById(p.parent).name.toLowerCase()}`]);
+  }
+  return rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+}
+
 function renderInfo() {
   const el = $('partInfo');
   if (!picked) {
@@ -803,11 +914,14 @@ function renderInfo() {
   const p = partById(picked);
   const n = stepOf[picked];
   const same = product.parts.filter((q) => q.name === p.name && (q.label || '') === (p.label || '')).length;
+  const hasDiagram = p.shape === 'board' || p.parent;
   el.innerHTML = `
     <button type="button" class="close" data-info="close" aria-label="Close">×</button>
     <p class="info-name">${p.label ? `<span class="letter">${p.label}</span>` : ''}${p.name}</p>
     <p class="info-meta">${same > 1 ? `1 of ${same} · ` : ''}${partStatus(picked)}</p>
-    <p class="info-step">Step ${n + 1}: ${product.steps[n].title}</p>
+    ${hasDiagram ? `<img class="info-diagram" src="${diagramFor(picked)}" width="${DIAGRAM_W / 2}" height="${DIAGRAM_H / 2}" alt="Where the ${p.name.toLowerCase()} goes in the finished ${product.name.toLowerCase()}, highlighted">` : ''}
+    <dl class="info-details">${partDetails(p)}</dl>
+    <p class="info-step">Used in step ${n + 1}: ${product.steps[n].title}</p>
     ${n !== done ? `<button type="button" class="btn small" data-info="go" ${busy ? 'disabled' : ''}>Go to step ${n + 1}</button>` : ''}`;
   el.hidden = false;
   placeInfo();
@@ -828,8 +942,29 @@ function placeInfo() {
   el.style.transform = `translate(${x}px, ${y}px)`;
 }
 
+// An accent rim around the tapped part: a slightly larger copy drawn from the inside, so only
+// its edge shows. Thicker and easier to see than 1px lines.
+const outlineMat = new THREE.MeshBasicMaterial({ color: 0xff6a1a, side: THREE.BackSide });
+let outline = [];
+
 function selectPart(id) {
+  for (const l of outline) l.removeFromParent();
+  outline = [];
   picked = id;
+  if (id) {
+    outlineMat.color.set(getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#d9531c');
+    objects[id].traverse((m) => {
+      if (!m.isMesh || m.userData.part !== id) return;
+      if (!m.geometry.boundingBox) m.geometry.computeBoundingBox();
+      const size = m.geometry.boundingBox.getSize(new V3());
+      const rim = partById(id).shape === 'board' ? 0.5 : 0.18; // cm of rim on each side
+      const l = new THREE.Mesh(m.geometry, outlineMat);
+      l.scale.set(1 + (2 * rim) / Math.max(size.x, 0.01), 1 + (2 * rim) / Math.max(size.y, 0.01), 1 + (2 * rim) / Math.max(size.z, 0.01));
+      l.raycast = () => {};
+      outline.push([m, l]);
+    });
+    outline = outline.map(([m, l]) => (m.add(l), l));
+  }
   renderInfo();
 }
 
@@ -856,9 +991,8 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') selectPart(null);
 });
 
-// Gentle pulse on the parts waiting in the pile for this step; a steady blue on a tapped part.
+// Gentle pulse on the parts waiting in the pile for this step.
 const PULSE = new THREE.Color(0x5c2a0a);
-const PICKED = new THREE.Color(0x1d3d66).multiplyScalar(0.55);
 function updatePulse(t) {
   const step = busy ? null : product.steps[done];
   const wanted = new Set(step ? step.parts : []);
@@ -866,8 +1000,7 @@ function updatePulse(t) {
   for (const [id, o] of Object.entries(objects)) {
     o.traverse((m) => {
       if (!m.isMesh || m.userData.part !== id || !m.material.emissive) return;
-      if (id === picked) m.material.emissive.copy(PICKED);
-      else m.material.emissive.copy(PULSE).multiplyScalar(wanted.has(id) ? 0.4 + 0.6 * k : 0);
+      m.material.emissive.copy(PULSE).multiplyScalar(wanted.has(id) && id !== picked ? 0.4 + 0.6 * k : 0);
     });
   }
   ghostMat.opacity = 0.2 + 0.2 * k;
