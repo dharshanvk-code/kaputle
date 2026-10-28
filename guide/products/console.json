@@ -6,7 +6,7 @@
   {
    "id": "legL",
    "label": "",
-   "name": "Leg panel",
+   "name": "Left leg panel",
    "shape": "board",
    "size": [
     5,
@@ -23,7 +23,7 @@
   {
    "id": "legR",
    "label": "",
-   "name": "Leg panel",
+   "name": "Right leg panel",
    "shape": "board",
    "size": [
     5,

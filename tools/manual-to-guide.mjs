@@ -77,7 +77,7 @@ Reply with exactly one JSON object inside a \`\`\`json code fence and nothing af
 
 # Rules
 1. Follow the manual's order exactly. Make one step per numbered manual step. Split a numbered step into consecutive sub-steps only when it shows clearly separate actions, and give each sub-step the same "manual" number. Don't add steps the manual doesn't show, except a final flip when the manual builds upside down and leaves turning it over implied; leave "manual" off that step.
-2. List every physical piece separately: "4x" means four parts. Every part is fitted in exactly one step. Tools such as the supplied wrench or Allen key are not parts; name them in the step text.
+2. List every physical piece separately: "4x" means four parts. Give matching boards names that tell them apart by position, for example "Left side panel" and "Right side panel". Every part is fitted in exactly one step. Tools such as the supplied wrench or Allen key are not parts; name them in the step text.
 3. Use the manual's printed part numbers as hardware labels.
 4. Manuals rarely give measurements. Estimate sizes from the drawings' proportions and typical sizes for that kind of product, and record each estimate in "notes".
 5. Line hardware up with what it joins: a dowel joining a shelf end to a side panel is centred on the joint face, half in each board.

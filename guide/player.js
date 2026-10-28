@@ -569,6 +569,7 @@ function frameCurrent(duration = 1) {
 // ---------- step control ----------
 async function next() {
   if (busy || done >= product.steps.length) return;
+  dismissTip();
   busy = true;
   clearGhosts();
   render();
@@ -602,6 +603,15 @@ async function jumpTo(target) {
   while (done < target) await next();
   while (done > target) await back();
   speed = 1;
+}
+
+// Replay the step just done: undo it quickly, then play it again at normal speed.
+async function replay() {
+  if (busy || done === 0) return;
+  speed = 0.35;
+  await back();
+  speed = 1;
+  await next();
 }
 
 let autoplay = false;
@@ -648,8 +658,19 @@ function speedControl() {
   return `<div class="speed" role="group" aria-label="Playback speed"><span>Speed</span>${opt(1, '1×')}${opt(0.5, '½×')}${opt(0.25, '¼×')}</div>`;
 }
 
+// A small prompt in the 3D view after each step, so you don't have to look at the panel.
+function renderPrompt() {
+  const el = $('nextPrompt');
+  const step = product.steps[done];
+  const show = done > 0 && step && !busy && !autoplay;
+  el.hidden = !show;
+  if (show) $('nextTitle').textContent = step.title;
+  $('firstTip').hidden = !(done === 0 && !busy && !tipSeen);
+}
+
 function render() {
   renderInfo();
+  renderPrompt();
   const total = product.steps.length;
   const card = $('card');
   const bar = product.steps.map((s, n) => `<span class="${n < done ? 'done' : n === done ? 'now' : ''}"></span>`).join('');
@@ -707,7 +728,40 @@ $('card').addEventListener('click', (e) => {
 });
 $('stepList').addEventListener('click', (e) => {
   const n = e.target.closest('[data-step]')?.dataset.step;
-  if (n !== undefined) jumpTo(Number(n));
+  if (n === undefined) return;
+  // Tapping the step you just did plays it again; any other step jumps there.
+  if (Number(n) === done - 1) replay();
+  else jumpTo(Number(n));
+});
+$('nextBtn').addEventListener('click', () => next());
+$('replayBtn').addEventListener('click', () => replay());
+
+// 5. One-time tip for first-time visitors.
+let tipSeen = false;
+try { tipSeen = localStorage.getItem('guide:tipSeen') === '1'; } catch { /* storage is optional */ }
+function dismissTip() {
+  if (tipSeen) return;
+  tipSeen = true;
+  try { localStorage.setItem('guide:tipSeen', '1'); } catch { /* storage is optional */ }
+  $('firstTip').hidden = true;
+}
+$('firstTip').addEventListener('click', dismissTip);
+
+// 3. Swipe the step card left or right on touch screens. (Swiping the 3D view turns the camera.)
+let swipe = null;
+$('card').addEventListener('touchstart', (e) => {
+  const t = e.touches[0];
+  swipe = { x: t.clientX, y: t.clientY };
+}, { passive: true });
+$('card').addEventListener('touchend', (e) => {
+  if (!swipe) return;
+  const t = e.changedTouches[0];
+  const dx = t.clientX - swipe.x;
+  const dy = t.clientY - swipe.y;
+  swipe = null;
+  if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx) * 0.6) return;
+  if (dx < 0) next();
+  else back();
 });
 $('resetViewBtn').addEventListener('click', () => frameCurrent(0.8));
 window.addEventListener('keydown', (e) => {
@@ -1118,4 +1172,4 @@ async function start() {
 start();
 
 // Handy for debugging and automated checks.
-window.guide = { next, back, jumpTo, playAll, selectPart, screenPointOf: (id) => screenPoint(id, canvas.getBoundingClientRect()), isBusy: () => busy, done: () => done, camera, controls };
+window.guide = { next, back, jumpTo, playAll, replay, selectPart, screenPointOf: (id) => screenPoint(id, canvas.getBoundingClientRect()), isBusy: () => busy, done: () => done, camera, controls };

@@ -27,6 +27,11 @@
       <canvas id="scene" aria-label="3D assembly scene. Use the step list to move through the instructions."></canvas>
       <div class="labels" id="labels"></div>
       <div class="part-info" id="partInfo" role="dialog" aria-label="Part details" hidden></div>
+      <button type="button" class="first-tip" id="firstTip" hidden>Press <b>Do this step</b> to start. Tap any part to see what it is. <span aria-hidden="true">×</span></button>
+      <div class="next-prompt" id="nextPrompt" hidden>
+        <button type="button" class="replay" id="replayBtn" aria-label="Replay the last step" title="Replay the last step">↻</button>
+        <button type="button" class="next" id="nextBtn"><span class="next-label">Next:</span> <span id="nextTitle"></span> <span aria-hidden="true">→</span></button>
+      </div>
       <p class="hint">Drag to turn · Scroll or pinch to zoom · Tap a part to see what it is</p>
       <div class="loading" id="loading">Unpacking the box…</div>
     </div>

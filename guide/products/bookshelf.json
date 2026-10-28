@@ -9,7 +9,7 @@
   {
    "id": "sideL",
    "label": "A",
-   "name": "Side panel",
+   "name": "Left side panel",
    "shape": "board",
    "size": [
     1.8,
@@ -26,7 +26,7 @@
   {
    "id": "sideR",
    "label": "A",
-   "name": "Side panel",
+   "name": "Right side panel",
    "shape": "board",
    "size": [
     1.8,
