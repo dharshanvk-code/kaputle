@@ -43,13 +43,14 @@ Reply with exactly one JSON object inside a \`\`\`json code fence and nothing af
 - Centimetres. x runs left to right across the product, y is up, z runs back to front (front is +z). The floor is y = 0.
 - "pos" is where a part sits in the FINISHED product standing the right way up, even when the manual builds it upside down.
 - Boards are boxes centred on "pos", with "size" [x, y, z] in the finished orientation.
-- Dowels and pins are cylinders centred on "pos". Screws and nails have their HEAD at "pos" and the shaft pointing along "dir".
+- Dowels and pins are cylinders centred on "pos". Screws and nails have their HEAD at "pos" and the shaft pointing along "dir". Knobs are centred on "pos", with "dir" pointing from the knob's head into the face it's fixed to.
 - "dir" (all non-board parts) is the direction the part moves as it goes in, in the finished product's frame.
 
 # Product
 - "name": what the product is, in plain words. No brand names.
 - "spec": one short line, for example approximate size and finish.
 - "startFlipped": "x" or "z", only if the manual starts the build upside down.
+- "startPose": {"axis": "x" or "z", "angle": degrees} instead, if the build starts on its side or front. For example {"axis": "z", "angle": -90} is lying on its right side; {"axis": "x", "angle": 90} is lying on its front.
 - "parts", "steps": as below.
 - "notes": an array of strings listing every estimate, ambiguity, or manual step you simplified.
 
@@ -61,7 +62,8 @@ Reply with exactly one JSON object inside a \`\`\`json code fence and nothing af
 - "size" for boards; "radius" and "length" for every other shape.
 - "pos", and "dir" for every non-board part.
 - "material": one of ${MATERIALS.join(', ')}. Pick the closest finish.
-- "parent" (optional): the id of a part this one is fitted to BEFORE that part is placed, for example bolts screwed into a leg that is still lying flat. The child then travels with its parent.
+- "parent" (optional): the id of a part this one is fitted to BEFORE that part is placed, for example bolts screwed into a leg that is still lying flat. The child then travels with its parent. Boards can have parents too (a drawer's sides fitted to its front), and parents can nest.
+- "stageUp" (optional, on a part that others are fitted to on the floor): the face, as a direction in the finished product, that faces up while it's worked on. For example [0, 0, -1] for a drawer front lying face down.
 
 # Steps
 - "manual": the step number printed in the manual.
@@ -72,8 +74,10 @@ Reply with exactly one JSON object inside a \`\`\`json code fence and nothing af
 - "from": [x, y, z], the offset a board comes in from. "approach": {"id": [x, y, z]} when parts in one step come from different sides.
 - "lower": cm. Lifts everything built so far, brings this step's part in underneath, then lowers the assembly onto it. Use it when the manual lowers a sub-assembly onto a part lying on the floor.
 - "view": camera direction in degrees around the product: 0 front, 90 right side, 180 back.
-- Flip step: {"type": "flip", "axis": "x", "title": "...", "text": "...", "tool": "Hands", "parts": []} turns the whole assembly over.
-- "from" and "approach" are in the world frame as the viewer sees it at that step, after any flips so far. "dir" is always in the finished product's frame.
+- Flip step: {"type": "flip", "axis": "x", "title": "...", "text": "...", "tool": "Hands", "parts": []} turns the whole assembly over. Add "angle" (degrees, default 180) for a quarter turn, for example to stand up a build that was lying on its side.
+- Turn step: {"type": "turn", "turn": ["id", ...], "pose": "upsideDown", "title": "...", "text": "...", "tool": "Hands", "parts": []} turns parts that are being worked on on the floor. "pose" is "upright", "upsideDown" or "over" (turned over where it lies); or give "up": [x, y, z], the face (in the finished product's frame) to turn upward. Only parts without a parent can be turned.
+- "from" and "approach" are in the world frame as the viewer sees it at that step, after any flips so far. With "local": true they are in the finished product's frame instead, which is easier for parts fitted to something on the floor. "dir" is always in the finished product's frame.
+- "manual" can be a string such as "65–66" when one step covers two manual steps that have nothing to animate on their own.
 
 # Rules
 1. Follow the manual's order exactly. Make one step per numbered manual step. Split a numbered step into consecutive sub-steps only when it shows clearly separate actions, and give each sub-step the same "manual" number. Don't add steps the manual doesn't show, except a final flip when the manual builds upside down and leaves turning it over implied; leave "manual" off that step.
@@ -81,7 +85,7 @@ Reply with exactly one JSON object inside a \`\`\`json code fence and nothing af
 3. Use the manual's printed part numbers as hardware labels.
 4. Manuals rarely give measurements. Estimate sizes from the drawings' proportions and typical sizes for that kind of product, and record each estimate in "notes".
 5. Line hardware up with what it joins: a dowel joining a shelf end to a side panel is centred on the joint face, half in each board.
-6. If the manual fits hardware to a part while that part lies on the floor, use "parent". If it builds upside down, set "startFlipped" and build in that orientation.
+6. If the manual fits hardware to a part while that part lies on the floor, use "parent". If it builds upside down or on its side, set "startFlipped" or "startPose" and build in that orientation. When the manual turns a sub-assembly over on the floor, add a turn step.
 7. Leave out steps that only fix the product to a wall (drilling, wall plugs). Mention them in "notes".
 
 # Example of the format (a different product, written by hand)

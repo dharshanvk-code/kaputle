@@ -5,12 +5,14 @@
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-export const SHAPES = ['board', 'dowel', 'pin', 'screw', 'nail'];
+export const SHAPES = ['board', 'dowel', 'pin', 'screw', 'nail', 'knob'];
 export const MATERIALS = ['birch', 'blackbrown', 'white', 'hardboard', 'dowel', 'steel', 'brass', 'plastic', 'felt', 'cardboard'];
 export const TOOLS = ['Hands', 'Hammer', 'Screwdriver', 'Wrench'];
 
 const isVec = (v) => Array.isArray(v) && v.length === 3 && v.every((n) => typeof n === 'number' && Number.isFinite(n));
-const isPos = (n) => typeof n === 'number' && Number.isFinite(n) && n > 0;
+const isNum = (n) => typeof n === 'number' && Number.isFinite(n);
+const isPos = (n) => isNum(n) && n > 0;
+const POSES = ['upright', 'upsideDown', 'over'];
 
 export function validateProduct(product) {
   const errors = [];
@@ -20,6 +22,11 @@ export function validateProduct(product) {
   if (!Array.isArray(product.parts) || !product.parts.length) err('`parts` must be a non-empty array.');
   if (!Array.isArray(product.steps) || !product.steps.length) err('`steps` must be a non-empty array.');
   if (product.startFlipped !== undefined && !['x', 'z'].includes(product.startFlipped)) err('`startFlipped` must be "x" or "z" when present.');
+  if (product.startPose !== undefined) {
+    const sp = product.startPose;
+    if (!sp || !['x', 'z'].includes(sp.axis) || (sp.angle !== undefined && !isNum(sp.angle))) err('`startPose` must be {"axis": "x" or "z", "angle": degrees}.');
+    if (product.startFlipped !== undefined) err('Use `startPose` or `startFlipped`, not both.');
+  }
   if (errors.length) return errors;
 
   const ids = new Set();
@@ -30,6 +37,7 @@ export function validateProduct(product) {
     ids.add(p.id);
     if (typeof p.name !== 'string' || !p.name) err(`${where}: missing \`name\`.`);
     if (p.label !== undefined && typeof p.label !== 'string') err(`${where}: \`label\` must be a string.`);
+    if (p.stageUp !== undefined && (!isVec(p.stageUp) || p.stageUp.every((n) => n === 0))) err(`${where}: \`stageUp\` must be a direction [x, y, z].`);
     if (!SHAPES.includes(p.shape)) err(`${where}: \`shape\` must be one of ${SHAPES.join(', ')}.`);
     if (!isVec(p.pos)) err(`${where}: \`pos\` must be [x, y, z] numbers.`);
     if (p.material !== undefined && !MATERIALS.includes(p.material)) err(`${where}: unknown material "${p.material}". Use one of ${MATERIALS.join(', ')}.`);
@@ -59,20 +67,38 @@ export function validateProduct(product) {
   }
 
   const used = new Map();
+  const firstStep = new Map();
+  product.steps.forEach((s, i) => Array.isArray(s?.parts) && s.parts.forEach((id) => !firstStep.has(id) && firstStep.set(id, i)));
   for (const [i, s] of product.steps.entries()) {
     const where = `steps[${i}]${s?.title ? ` ("${s.title}")` : ''}`;
     if (typeof s.title !== 'string' || !s.title) err(`${where}: missing \`title\`.`);
     if (typeof s.text !== 'string' || !s.text) err(`${where}: missing \`text\`.`);
     if (s.tool !== undefined && !TOOLS.includes(s.tool)) err(`${where}: \`tool\` must be one of ${TOOLS.join(', ')}.`);
-    if (!Array.isArray(s.parts)) { err(`${where}: \`parts\` must be an array (empty for a flip).`); continue; }
+    if (s.manual !== undefined && !isNum(s.manual) && typeof s.manual !== 'string') err(`${where}: \`manual\` must be a step number or a string like "65–66".`);
+    if (!Array.isArray(s.parts)) { err(`${where}: \`parts\` must be an array (empty for a flip or turn).`); continue; }
     if (s.type === 'flip') {
       if (s.parts.length) err(`${where}: a flip step moves the whole assembly, so its \`parts\` must be empty.`);
       if (s.axis !== undefined && !['x', 'z'].includes(s.axis)) err(`${where}: flip \`axis\` must be "x" or "z".`);
+      if (s.angle !== undefined && (!isNum(s.angle) || s.angle === 0)) err(`${where}: flip \`angle\` must be a non-zero number of degrees.`);
+      continue;
+    }
+    if (s.type === 'turn') {
+      if (s.parts.length) err(`${where}: a turn step only turns parts that are already out, so its \`parts\` must be empty.`);
+      if (!Array.isArray(s.turn) || !s.turn.length) err(`${where}: a turn step needs \`turn\`, the ids of the parts it turns.`);
+      else for (const id of s.turn) {
+        if (!ids.has(id)) err(`${where}: "${id}" is not a part.`);
+        else if (byId.get(id).parent) err(`${where}: "${id}" is fitted to another part; turn that part instead.`);
+        else if (!(firstStep.get(id) > i)) err(`${where}: "${id}" is already fitted by this step, so it can't be turned on the floor.`);
+      }
+      if (s.up !== undefined) {
+        if (!isVec(s.up) || s.up.every((n) => n === 0)) err(`${where}: \`up\` must be a direction [x, y, z].`);
+      } else if (!POSES.includes(s.pose)) err(`${where}: a turn step needs \`pose\` (${POSES.join(', ')}) or \`up\`.`);
       continue;
     }
     if (s.type !== undefined) err(`${where}: unknown step type "${s.type}".`);
     if (!s.parts.length) err(`${where}: a step must fit at least one part.`);
     if (s.from !== undefined && !isVec(s.from)) err(`${where}: \`from\` must be [x, y, z].`);
+    if (s.local !== undefined && typeof s.local !== 'boolean') err(`${where}: \`local\` must be true or false.`);
     if (s.slide !== undefined && !isPos(s.slide)) err(`${where}: \`slide\` must be a positive number.`);
     if (s.lower !== undefined && !isPos(s.lower)) err(`${where}: \`lower\` must be a positive number.`);
     if (s.approach !== undefined) {

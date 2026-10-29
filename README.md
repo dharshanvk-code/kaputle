@@ -25,9 +25,18 @@ and animates each step, with a blue outline showing where parts go.
 
 To add a product, write a new JSON file and open `guide/?product=<name>`.
 
-It can also follow manuals that build upside down (`startFlipped` plus a `flip` step), lower a
-sub-assembly onto a part (`lower`), and fit hardware to a part while it's still lying in the pile
-(`parent`).
+It can also follow manuals that build upside down or on their side (`startFlipped` or `startPose`,
+plus `flip` steps, which can be quarter turns), lower a sub-assembly onto a part (`lower`), fit parts
+to something still on the floor (`parent`, nested as deep as needed, such as screws into a drawer side
+that's fitted to its front), and turn those floor sub-assemblies over (`turn` steps).
+
+Three products are included:
+
+| Product | File | Parts | Steps |
+|---|---|---|---|
+| Flat-pack bookshelf (hand-written example) | `bookshelf.json` | 32 | 10 |
+| Console table, from the IKEA LACK manual | `console.json` | 40 | 11 |
+| 8-drawer dresser, from the 52-page IKEA HEMNES manual | `hemnes.json` | 497 | 95 |
 
 ### Turn a manual PDF into a guide
 
@@ -69,4 +78,5 @@ three.js is loaded from jsDelivr through an import map in `index.html`.
 | `guide/player.js` | The general assembly-guide player |
 | `tools/manual-to-guide.mjs` | Manual PDF → product file, using the Claude API |
 | `tools/validate-product.mjs` | Checks a product file |
+| `tools/products/hemnes.py` | Writes the 497-part dresser guide (`guide/products/hemnes.json`) |
 | `prototype/2d.html` | The first 2D emoji prototype |

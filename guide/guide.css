@@ -139,6 +139,9 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .steps-bar span { height: 5px; border-radius: 3px; background: var(--line); }
 .steps-bar span.done { background: var(--ok); }
 .steps-bar span.now { background: var(--accent); }
+.steps-bar.long { display: flex; gap: 0; height: 5px; border-radius: 3px; overflow: hidden; background: var(--line); }
+.steps-bar.long span { border-radius: 0; min-width: 0; }
+.steps-bar.long span.now { min-width: 4px; }
 .needs { display: grid; gap: 8px; padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
 .needs .tool { display: inline-flex; align-items: center; gap: 6px; font: 600 13px var(--font-mono); color: var(--ink-soft); }
 .needs svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
