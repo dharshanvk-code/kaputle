@@ -116,3 +116,5 @@ tests/                    end-to-end tests
 
 Not affiliated with IKEA. The manuals are IKEA's; the 3D models and guides are original, with sizes
 estimated from the drawings.
+
+© 2026 Dharshan Vetrivelan. All rights reserved.
