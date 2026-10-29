@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { birchTexture, plankTexture } from './textures.js';
 
 const $ = (id) => document.getElementById(id);
@@ -160,6 +161,72 @@ function assembledQuat(p) {
 function partExtent(p) {
   if (p.shape === 'board') return new V3(...p.size);
   return new V3(p.radius * 2, p.length, p.radius * 2);
+}
+
+// ---------- pre-drilled holes ----------
+// Flat-pack boards come drilled, and the holes are how you match parts. Wherever a dowel, stud,
+// screw or cam lock goes into a board, that board gets a hole on that face, so a board lying in
+// the pile already shows where its hardware goes and which way. Worked out from the parts'
+// positions, not authored. Nails make their own holes, so they're left out.
+const holeMat = new THREE.MeshStandardMaterial({
+  color: 0x231d19, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+});
+const AXES = ['x', 'y', 'z'];
+
+function drillHoles() {
+  const boards = product.parts.filter((p) => p.shape === 'board');
+  const discs = {}; // board id -> hole geometries, in the board's own frame
+  const zAxis = new V3(0, 0, 1);
+  for (const h of product.parts) {
+    if (!['dowel', 'pin', 'screw'].includes(h.shape)) continue;
+    const dir = new V3(...h.dir).normalize();
+    const start = new V3(...h.pos);
+    if (h.shape !== 'screw') start.addScaledVector(dir, -h.length / 2); // centred parts
+    const radius = h.shape === 'screw' ? h.radius * 1.4 : h.radius * 1.12;
+    for (const b of boards) {
+      // Where the part's axis enters and leaves the board's box (boards sit square in the product).
+      const c = new V3(...b.pos);
+      const half = new V3(...b.size).multiplyScalar(0.5);
+      let tIn = -Infinity;
+      let tOut = Infinity;
+      let nIn = null;
+      let nOut = null;
+      let misses = false;
+      for (const a of AXES) {
+        const o = start[a] - c[a];
+        const d = dir[a];
+        if (Math.abs(d) < 1e-6) {
+          if (Math.abs(o) > half[a] - 0.01) misses = true;
+          continue;
+        }
+        const sign = d > 0 ? 1 : -1;
+        const enter = (-sign * half[a] - o) / d;
+        const leave = (sign * half[a] - o) / d;
+        if (enter > tIn) {
+          tIn = enter;
+          nIn = new V3().setComponent(AXES.indexOf(a), -sign);
+        }
+        if (leave < tOut) {
+          tOut = leave;
+          nOut = new V3().setComponent(AXES.indexOf(a), sign);
+        }
+      }
+      if (misses || Math.min(tOut, h.length) - Math.max(tIn, 0) < 0.15) continue;
+      for (const [t, n] of [[tIn, nIn], [tOut, nOut]]) {
+        if (t < -0.05 || t > h.length + 0.05) continue; // that face is beyond the part's ends
+        const geo = new THREE.CircleGeometry(radius, 20);
+        const at = start.clone().addScaledVector(dir, t).sub(c).addScaledVector(n, 0.015);
+        geo.applyMatrix4(new THREE.Matrix4().compose(at, new Q().setFromUnitVectors(zAxis, n), new V3(1, 1, 1)));
+        (discs[b.id] ||= []).push(geo);
+      }
+    }
+  }
+  for (const [id, list] of Object.entries(discs)) {
+    const m = new THREE.Mesh(mergeGeometries(list), holeMat);
+    m.raycast = () => {}; // taps go to the board itself
+    objects[id].add(m);
+    for (const g of list) g.dispose();
+  }
 }
 
 // ---------- the parts pile: generated, not authored ----------
@@ -1406,6 +1473,7 @@ async function start() {
     if (p.parent) relM[p.id] = finalM[p.parent].clone().invert().multiply(finalM[p.id]);
   }
   scene.add(buildTray());
+  drillHoles();
 
   resize();
   const box = overviewBox();

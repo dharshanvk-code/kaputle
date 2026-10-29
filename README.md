@@ -21,7 +21,9 @@ The puzzle layer (faults, diagnostic tools, scoring, daily rotation) comes next.
 A general player for step-by-step 3D assembly instructions. It reads one product file
 (`guide/products/bookshelf.json`): every part's shape, size, material and final position,
 plus the steps in order. From that alone it builds the parts, lays out the box contents,
-and animates each step, with a blue outline showing where parts go.
+and animates each step, with a blue outline showing where parts go. Boards show their pre-drilled
+holes, worked out from where each dowel, stud, screw and cam lock goes, so a loose board shows
+where its hardware fits and which way it faces.
 
 To add a product, write a new JSON file and open `guide/?product=<name>`.
 
