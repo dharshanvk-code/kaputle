@@ -168,14 +168,19 @@ function partExtent(p) {
 // screw or cam lock goes into a board, that board gets a hole on that face, so a board lying in
 // the pile already shows where its hardware goes and which way. Worked out from the parts'
 // positions, not authored. Nails make their own holes, so they're left out.
+// A hole is a dark centre with a rim of the raw board showing, which reads on any finish:
+// white, birch or near-black.
 const holeMat = new THREE.MeshStandardMaterial({
-  color: 0x231d19, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+  color: 0x1c1714, roughness: 1, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3,
+});
+const rimMat = new THREE.MeshStandardMaterial({
+  color: 0xc8a77a, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
 });
 const AXES = ['x', 'y', 'z'];
 
 function drillHoles() {
   const boards = product.parts.filter((p) => p.shape === 'board');
-  const discs = {}; // board id -> hole geometries, in the board's own frame
+  const discs = {}; // board id -> { holes, rims } geometries, in the board's own frame
   const zAxis = new V3(0, 0, 1);
   for (const h of product.parts) {
     if (!['dowel', 'pin', 'screw'].includes(h.shape)) continue;
@@ -214,18 +219,24 @@ function drillHoles() {
       if (misses || Math.min(tOut, h.length) - Math.max(tIn, 0) < 0.15) continue;
       for (const [t, n] of [[tIn, nIn], [tOut, nOut]]) {
         if (t < -0.05 || t > h.length + 0.05) continue; // that face is beyond the part's ends
-        const geo = new THREE.CircleGeometry(radius, 20);
         const at = start.clone().addScaledVector(dir, t).sub(c).addScaledVector(n, 0.015);
-        geo.applyMatrix4(new THREE.Matrix4().compose(at, new Q().setFromUnitVectors(zAxis, n), new V3(1, 1, 1)));
-        (discs[b.id] ||= []).push(geo);
+        const place = new THREE.Matrix4().compose(at, new Q().setFromUnitVectors(zAxis, n), new V3(1, 1, 1));
+        const rim = Math.max(0.12, radius * 0.35);
+        const entry = (discs[b.id] ||= { holes: [], rims: [] });
+        entry.holes.push(new THREE.CircleGeometry(radius, 20).applyMatrix4(place));
+        // Metal and plastic parts have punched holes, with no raw core to show.
+        if (!['steel', 'brass', 'plastic'].includes(b.material)) entry.rims.push(new THREE.RingGeometry(radius * 0.98, radius + rim, 20).applyMatrix4(place));
       }
     }
   }
-  for (const [id, list] of Object.entries(discs)) {
-    const m = new THREE.Mesh(mergeGeometries(list), holeMat);
-    m.raycast = () => {}; // taps go to the board itself
-    objects[id].add(m);
-    for (const g of list) g.dispose();
+  for (const [id, { holes, rims }] of Object.entries(discs)) {
+    for (const [list, mat] of [[holes, holeMat], [rims, rimMat]]) {
+      if (!list.length) continue;
+      const m = new THREE.Mesh(mergeGeometries(list), mat);
+      m.raycast = () => {}; // taps go to the board itself
+      objects[id].add(m);
+      for (const g of list) g.dispose();
+    }
   }
 }
 
@@ -1423,7 +1434,6 @@ async function start() {
     return;
   }
   $('productName').textContent = product.name;
-  $('productSpec').textContent = product.spec;
   $('partCount').textContent = `${product.parts.length} parts · ${product.steps.length} steps`;
   if (product.source?.url) {
     // The manual this guide was built from, linked rather than copied.
@@ -1443,6 +1453,16 @@ async function start() {
     const ext = absV(partExtent(p).applyQuaternion(q)).multiplyScalar(0.5);
     assembledBox.expandByPoint(new V3(...p.pos).sub(ext)).expandByPoint(new V3(...p.pos).add(ext));
   }
+  // The size is worked out from the boards (not hardware or metal fittings like wall brackets),
+  // so every product states it the same way.
+  const woodBox = new THREE.Box3();
+  for (const p of product.parts) {
+    if (p.shape !== 'board' || ['steel', 'brass'].includes(p.material)) continue;
+    const half = new V3(...p.size).multiplyScalar(0.5);
+    woodBox.expandByPoint(new V3(...p.pos).sub(half)).expandByPoint(new V3(...p.pos).add(half));
+  }
+  const dims = woodBox.getSize(new V3());
+  $('productSpec').textContent = [`About ${Math.round(dims.x)} × ${Math.round(dims.y)} × ${Math.round(dims.z)} cm`, product.spec].filter(Boolean).join(' · ');
   // Leave room for the build in any orientation it's turned to: lying down, it's wider.
   const half = assembledBox.getSize(new V3()).multiplyScalar(0.5);
   const reach = Math.max(half.x, half.y, half.z);

@@ -626,7 +626,7 @@ for s in steps:
 
 product = {
     'name': '8-drawer dresser',
-    'spec': 'About 160 × 96 × 50 cm · 8 drawers · built from a 52-page paper manual · sizes estimated',
+    'spec': 'White stain · 8 drawers · built from a 52-page paper manual · sizes estimated',
     'source': {
         'label': 'IKEA HEMNES 8-drawer dresser manual (AA-2406539-5)',
         'url': 'https://www.ikea.com/us/en/assembly_instructions/hemnes-8-drawer-dresser-white-stain__AA-2406539-5-100.pdf',

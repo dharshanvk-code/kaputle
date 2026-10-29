@@ -48,7 +48,7 @@ Reply with exactly one JSON object inside a \`\`\`json code fence and nothing af
 
 # Product
 - "name": what the product is, in plain words. No brand names.
-- "spec": one short line, for example approximate size and finish.
+- "spec": one short line in this pattern: the finish, then "built from an N-page paper manual · sizes estimated", for example "Black-brown · built from an 8-page paper manual · sizes estimated". Leave out the size; the player works it out from the parts.
 - "startFlipped": "x" or "z", only if the manual starts the build upside down.
 - "startPose": {"axis": "x" or "z", "angle": degrees} instead, if the build starts on its side or front. For example {"axis": "z", "angle": -90} is lying on its right side; {"axis": "x", "angle": 90} is lying on its front.
 - "parts", "steps": as below.
