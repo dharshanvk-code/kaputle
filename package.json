@@ -1,0 +1,24 @@
+{
+  "name": "kaputle",
+  "private": true,
+  "type": "module",
+  "description": "Interactive 3D assembly guides built from paper manuals.",
+  "scripts": {
+    "start": "node tools/serve.mjs",
+    "test": "node tools/validate-product.mjs && node --test \"tests/*.test.mjs\"",
+    "lint": "eslint .",
+    "manual": "node tools/manual-to-guide.mjs",
+    "build:hemnes": "node tools/products/hemnes.mjs",
+    "record": "node tools/record-video.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "eslint": "^9.39.0",
+    "globals": "^15.15.0",
+    "playwright": "1.63.0",
+    "three": "0.160.0"
+  }
+}

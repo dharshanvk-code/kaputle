@@ -1,8 +1,9 @@
 // Checks a guide product file against what the player expects.
 // Returns a list of problems; an empty list means the file is playable.
-// Also runs as a CLI: node tools/validate-product.mjs guide/products/bookshelf.json
+// Also runs as a CLI: node tools/validate-product.mjs [product.json ...]
 
 import fs from 'node:fs';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const SHAPES = ['board', 'dowel', 'pin', 'screw', 'nail', 'knob'];
@@ -121,18 +122,23 @@ export function validateProduct(product) {
   return errors;
 }
 
-// CLI
+// CLI: checks the files given, or every product in guide/products.
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const file = process.argv[2];
-  if (!file) {
-    console.error('Usage: node tools/validate-product.mjs <product.json>');
-    process.exit(2);
+  const productsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'guide', 'products');
+  const files = process.argv.length > 2
+    ? process.argv.slice(2)
+    : fs.readdirSync(productsDir).filter((f) => f.endsWith('.json')).map((f) => path.join(productsDir, f));
+  let failed = false;
+  for (const file of files) {
+    const errors = validateProduct(JSON.parse(fs.readFileSync(file, 'utf8')));
+    const name = path.relative(process.cwd(), file);
+    if (errors.length) {
+      failed = true;
+      console.error(`${name}: ${errors.length} problem${errors.length === 1 ? '' : 's'}`);
+      for (const e of errors) console.error(`  - ${e}`);
+    } else {
+      console.log(`${name}: OK`);
+    }
   }
-  const errors = validateProduct(JSON.parse(fs.readFileSync(file, 'utf8')));
-  if (errors.length) {
-    console.error(`${file}: ${errors.length} problem${errors.length === 1 ? '' : 's'}`);
-    for (const e of errors) console.error(`  - ${e}`);
-    process.exit(1);
-  }
-  console.log(`${file}: OK`);
+  process.exit(failed ? 1 : 0);
 }
