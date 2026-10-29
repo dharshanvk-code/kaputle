@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Turns an assembly-manual PDF into a product file for the guide player.
 //
-//   node tools/manual-to-guide.mjs path/to/manual.pdf [--out guide/products/my-table.json] [--name "My table"]
+//   npm run manual -- path/to/manual.pdf [--out guide/products/my-table.json] [--name "My table"]
 //
 // Claude reads the manual, drafts the file, and the draft is checked against what the player
 // expects. If the check finds problems, Claude gets the list and fixes them (up to twice).
@@ -12,6 +12,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Anthropic from '@anthropic-ai/sdk';
 import { validateProduct, SHAPES, MATERIALS, TOOLS } from './validate-product.mjs';
+import { formatProduct } from './format-product.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, '..');
@@ -176,7 +177,7 @@ async function main() {
 
   if (!product) throw new Error(`Couldn't get a usable product file:\n${problems.map((p) => `  - ${p}`).join('\n')}`);
   const out = args.out || path.join(repo, 'guide/products', `${slug(product.name || path.basename(args.pdf, '.pdf'))}.json`);
-  fs.writeFileSync(out, JSON.stringify(product, null, 1) + '\n');
+  fs.writeFileSync(out, formatProduct(product));
   const rel = path.relative(repo, out);
   console.log(`\nWrote ${rel}: ${product.parts.length} parts, ${product.steps.length} steps.`);
   if (problems.length) {
