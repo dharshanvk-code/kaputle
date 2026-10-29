@@ -1,86 +1,118 @@
 # Kaputle
 
-A daily fix-it puzzle. Every day there's a new broken thing: take it apart, find what's wrong, and fix it.
+Interactive 3D assembly guides, built from paper manuals. Every step follows the manual's order, every
+screw and dowel shows the part number printed in the bag, and you can turn the build around, slow
+it down or tap any part to see what it is and where it goes.
 
-## Current stage: the 3D workbench
+**[Try the 8-drawer dresser](https://dharshanvk-code.github.io/kaputle/guide/?product=hemnes)** ·
+[Console table](https://dharshanvk-code.github.io/kaputle/guide/?product=console) ·
+[About the project](https://dharshanvk-code.github.io/)
 
-The first object is a realistic two-cell flashlight on a workbench. You can:
+![The finished 3D dresser](docs/dresser.jpg)
 
-- Rotate and zoom around it
-- Take it apart in a real order: unscrew the tail cap before the batteries come out, take the head off before the bulb
-- Put every part back, with the same rules in reverse
-- Inspect any visible part up close, with a short explanation of what it does and what to look for
-- Switch it on: the bulb only lights when the circuit is complete, and the beam only forms with the head on
-- Follow a guided build, step by step, with a see-through outline showing where each part goes
-- Turn on workshop sounds (threads, clicks, parts seating), all generated in code
+## Guides
 
-The puzzle layer (faults, diagnostic tools, scoring, daily rotation) comes next.
-
-## Assembly guide player (`guide/`)
-
-A general player for step-by-step 3D assembly instructions. It reads one product file
-(`guide/products/bookshelf.json`): every part's shape, size, material and final position,
-plus the steps in order. From that alone it builds the parts, lays out the box contents,
-and animates each step, with a blue outline showing where parts go. Boards show their pre-drilled
-holes, worked out from where each dowel, stud, screw and cam lock goes, so a loose board shows
-where its hardware fits and which way it faces.
-
-To add a product, write a new JSON file and open `guide/?product=<name>`.
-Add `&embed` to show just the 3D view with a "Watch it build" button, for putting a guide inside
-another page (`&speed=5` sets how fast the build plays).
-
-It can also follow manuals that build upside down or on their side (`startFlipped` or `startPose`,
-plus `flip` steps, which can be quarter turns), lower a sub-assembly onto a part (`lower`), fit parts
-to something still on the floor (`parent`, nested as deep as needed, such as screws into a drawer side
-that's fitted to its front), and turn those floor sub-assemblies over (`turn` steps).
-
-Three products are included:
-
-| Product | File | Parts | Steps |
+| Product | From | Parts | Steps |
 |---|---|---|---|
-| Flat-pack bookshelf (hand-written example) | `bookshelf.json` | 32 | 10 |
-| Console table, from the IKEA LACK manual | `console.json` | 40 | 11 |
-| 8-drawer dresser, from the 52-page IKEA HEMNES manual | `hemnes.json` | 497 | 95 |
+| [8-drawer dresser](https://dharshanvk-code.github.io/kaputle/guide/?product=hemnes) | 52-page IKEA HEMNES manual | 497 | 95 |
+| [Console table](https://dharshanvk-code.github.io/kaputle/guide/?product=console) | 8-page IKEA LACK manual | 40 | 11 |
+| [Bookshelf](https://dharshanvk-code.github.io/kaputle/guide/?product=bookshelf) | A hand-written example | 32 | 10 |
 
-### Turn a manual PDF into a guide
+## How it works
 
-`tools/manual-to-guide.mjs` sends an assembly manual to Claude, which drafts the product file.
-The draft is checked against what the player expects, and any problems go back to Claude to fix.
+Nothing is hand-animated. The player in [`guide/`](guide) reads one product file that lists every
+part (its shape, size, material and position in the finished product) and every step in order. From
+that alone it builds the 3D parts, lays out the box contents, works out where the pre-drilled holes
+are, and animates each step.
 
-```sh
-cd tools && npm install
-export ANTHROPIC_API_KEY=...        # or: ant auth login
-node manual-to-guide.mjs ~/Downloads/manual.pdf --name "Console table"
-# writes guide/products/console-table.json, then open guide/?product=console-table
+![The dresser half built, with its drawers being made on the floor](docs/dresser-building.jpg)
+
+It can follow what real manuals do:
+
+- **Build in any orientation:** start upside down or on its side, and turn the whole build over or
+  stand it up with `flip` steps.
+- **Work on the floor first:** fit hardware to a part before it goes in (`parent`), nested as deep
+  as needed, such as a drawer side with its dowels fitted to a drawer front. The player sets those
+  pieces out in front of the build, the right face up, and `turn` steps turn them over.
+- **Lower one piece onto another:** `lower` lifts the build and sets it down onto a part.
+- **Embed it in another page:** `?embed` shows just the 3D view with a "Watch it build" button.
+
+### The product file
+
+```json
+{
+  "name": "Console table",
+  "spec": "Black-brown · built from an 8-page paper manual · sizes estimated",
+  "startFlipped": "x",
+  "parts": [
+    {"id": "top", "name": "Tabletop", "label": "", "shape": "board", "size": [140, 5, 35], "pos": [0, 72.8, 0], "material": "blackbrown"},
+    {"id": "studL1", "name": "Cam stud", "label": "114928", "shape": "screw", "radius": 0.3, "length": 4, "pos": [-67.5, 67.8, -6], "dir": [0, 1, 0], "material": "steel", "parent": "top"}
+  ],
+  "steps": [
+    {"manual": 2, "title": "Screw the cam studs into the tabletop", "text": "Screw the four cam studs into the holes near each end of the tabletop, with the tabletop lying flat.", "tool": "Screwdriver", "parts": ["studL1", "studL2", "studR1", "studR2"], "spin": 3}
+  ]
+}
 ```
 
-It prints anything Claude had to estimate (manuals rarely give measurements), so you know what to
-check. `node tools/validate-product.mjs <file>` checks any product file on its own.
+An excerpt from [`console.json`](guide/products/console.json). Positions are in centimetres in the
+finished, upright product (x left to right, y up, z towards the front). [`tools/validate-product.mjs`](tools/validate-product.mjs) documents every field by
+checking it.
 
-## Run it
+## Turning a manual into a guide
 
-It's a static site with no build step. Serve the folder with any static server and open it:
+[`tools/manual-to-guide.mjs`](tools/manual-to-guide.mjs) sends a manual PDF to Claude, which drafts
+the product file. The draft is checked against the format, and any problems go back to Claude to fix.
 
 ```sh
-python3 -m http.server 8000
-# then open http://localhost:8000
+export ANTHROPIC_API_KEY=...
+npm run manual -- ~/Downloads/manual.pdf --name "Nightstand"
 ```
 
-Opening `index.html` directly from disk won't work, because browsers block ES modules on `file://`.
+It lists everything it had to estimate (manuals rarely give measurements), so you know what to check.
+The dresser is big enough that its file is written by a script instead:
+[`tools/products/hemnes.mjs`](tools/products/hemnes.mjs).
 
-three.js is loaded from jsDelivr through an import map in `index.html`.
+## Development
 
-## Code
+Needs Node 20 or later. It's a static site with no build step: three.js loads from a CDN.
 
-| File | What it does |
+```sh
+npm install
+npm start          # serves the guide at http://localhost:8000/guide/
+npm test           # checks every product file, then plays every guide in a headless browser
+npm run lint
+```
+
+The tests play every step of every guide forward and back, and check that nothing passes through
+the floor, that every part ends exactly where its product file says, and that undoing every step
+puts everything back in the box.
+
+| Script | What it does |
 |---|---|
-| `src/flashlight.js` | Builds the flashlight model, part by part |
-| `src/parts.js` | Part names, descriptions, how each part comes off, where it rests on the bench |
-| `src/textures.js` | Procedural textures: cutting mat, wood, pegboard, knurling, battery wrapper |
-| `src/main.js` | Scene, camera, take-apart animations, inspecting, the light, the guided build, and the side panel |
-| `src/audio.js` | Synthesised sound effects (Web Audio) |
-| `guide/player.js` | The general assembly-guide player |
-| `tools/manual-to-guide.mjs` | Manual PDF → product file, using the Claude API |
-| `tools/validate-product.mjs` | Checks a product file |
-| `tools/products/hemnes.py` | Writes the 497-part dresser guide (`guide/products/hemnes.json`) |
-| `prototype/2d.html` | The first 2D emoji prototype |
+| `npm run manual -- <pdf>` | Drafts a product file from a manual PDF |
+| `npm run build:hemnes` | Rewrites the dresser's product file |
+| `npm run record -- <product>` | Records a time-lapse video of a guide building itself (needs ffmpeg) |
+
+## Project layout
+
+```
+guide/
+  index.html, guide.css   the page
+  products/               one JSON file per product
+  src/
+    main.js               loads a product and starts the player
+    state.js              the shared state: parts, current step, what's set out on the floor
+    assembly.js           moving parts: setting out, fitting, flipping, turning
+    steps.js              next, back, jump, replay, play all
+    camera.js             framing each step
+    ui.js                 the step card, step list and labels
+    info.js, diagram.js   the tap-a-part card and its picture
+    parts.js, holes.js    building a part's model and its drilled holes
+    pile.js               laying out the box contents
+    scene.js, tween.js    the 3D view, and the animation clock
+tools/                    the manual tool, validator, formatter, recorder and local server
+tests/                    end-to-end tests
+```
+
+Not affiliated with IKEA. The manuals are IKEA's; the 3D models and guides are original, with sizes
+estimated from the drawings.
