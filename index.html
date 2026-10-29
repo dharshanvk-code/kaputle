@@ -2,85 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Kaputle</title>
-<meta name="claude:viewport-fit-sides" content="cover">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;600&display=swap">
-<link rel="stylesheet" href="styles.css">
+<title>Kaputle Assembly Guides</title>
+<meta http-equiv="refresh" content="0; url=guide/">
+<link rel="canonical" href="guide/">
 </head>
 <body>
-<div class="app">
-  <header class="topbar">
-    <div class="brand">
-      <span class="logo" aria-label="Kaputle">Kapu<span class="loose">t</span>le</span>
-      <span class="tag">Workbench</span>
-    </div>
-    <div class="top-actions">
-      <button type="button" class="btn icon-btn" id="soundBtn" aria-pressed="false">
-        <svg class="ico-on" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 8h3l4-3.5v11L6 12H3z" fill="currentColor"/><path d="M13 7.2a4 4 0 0 1 0 5.6M15.2 5a7 7 0 0 1 0 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-        <svg class="ico-off" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 8h3l4-3.5v11L6 12H3z" fill="currentColor"/><path d="M13.5 7.5l5 5M18.5 7.5l-5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-        <span class="label">Sound off</span>
-      </button>
-      <button type="button" class="btn" id="resetViewBtn">Reset view</button>
-    </div>
-  </header>
-
-  <main class="stage">
-    <div class="viewport" id="viewport">
-      <canvas id="scene" aria-label="3D workbench with a flashlight. Use the parts list to select parts."></canvas>
-      <div class="labels" id="labels"></div>
-      <div class="inspect-bar" id="inspectBar" hidden>
-        <span>Inspecting <b id="inspectName"></b></span>
-        <button type="button" class="btn small" id="doneInspect">Done</button>
-      </div>
-      <p class="hint" id="hint">Drag to turn · Scroll or pinch to zoom · Double-tap a part to inspect</p>
-      <div class="toast" id="toast" role="status" hidden></div>
-      <div class="loading" id="loading">Setting up the workbench…</div>
-    </div>
-
-    <aside class="side">
-      <section class="job">
-        <p class="eyebrow">On the bench</p>
-        <h1>Flashlight</h1>
-        <p class="spec">2-cell incandescent · 21.8 cm · 9 parts</p>
-        <div class="meter">
-          <div class="meter-bar"><span id="progressFill"></span></div>
-          <span id="progressText">0 of 6 parts out</span>
-        </div>
-        <div class="job-actions">
-          <button type="button" class="btn power" id="powerBtn" aria-pressed="false"><span class="led" aria-hidden="true"></span><span class="label">Switch on</span></button>
-          <button type="button" class="btn primary" id="guideBtn">Guided build</button>
-          <button type="button" class="btn" id="apartBtn">Take it all apart</button>
-        </div>
-      </section>
-
-      <section class="card" id="card" aria-live="polite"></section>
-
-      <section>
-        <h2 class="section-title">Parts, back to front</h2>
-        <ul class="part-list" id="partList"></ul>
-      </section>
-    </aside>
-  </main>
-</div>
-
-<script>
-  setTimeout(function () {
-    if (window.__kaputleReady) return;
-    var el = document.getElementById('loading');
-    if (el) el.textContent = 'The 3D workbench could not start. Try a recent version of Chrome, Safari, Edge or Firefox.';
-  }, 12000);
-</script>
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-  }
-}
-</script>
-<script type="module" src="src/main.js"></script>
+<p><a href="guide/">Open the assembly guide</a></p>
 </body>
 </html>
