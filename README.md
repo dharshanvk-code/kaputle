@@ -26,6 +26,8 @@ holes, worked out from where each dowel, stud, screw and cam lock goes, so a loo
 where its hardware fits and which way it faces.
 
 To add a product, write a new JSON file and open `guide/?product=<name>`.
+Add `&embed` to show just the 3D view with a "Watch it build" button, for putting a guide inside
+another page (`&speed=5` sets how fast the build plays).
 
 It can also follow manuals that build upside down or on their side (`startFlipped` or `startPose`,
 plus `flip` steps, which can be quarter turns), lower a sub-assembly onto a part (`lower`), fit parts

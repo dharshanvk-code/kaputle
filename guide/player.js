@@ -13,7 +13,13 @@ const V3 = THREE.Vector3;
 const Q = THREE.Quaternion;
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const params = new URLSearchParams(location.search);
-const PRODUCT_URL = `products/${(params.get('product') || 'bookshelf').replace(/[^a-z0-9-]/gi, '')}.json`;
+const PRODUCT_NAME = (params.get('product') || 'bookshelf').replace(/[^a-z0-9-]/gi, '');
+const PRODUCT_URL = `products/${PRODUCT_NAME}.json`;
+// ?embed: just the 3D view with a play button, for showing a guide inside another page.
+// It opens on the finished product and can play the whole build quickly.
+const EMBED = params.has('embed');
+const EMBED_SPEED = Number(params.get('speed')) || 5;
+if (EMBED) document.documentElement.classList.add('embed');
 
 const canvas = $('scene');
 const viewport = $('viewport');
@@ -44,6 +50,13 @@ controls.maxPolarAngle = THREE.MathUtils.degToRad(86);
 controls.minDistance = 20;
 controls.maxDistance = 1500;
 controls.screenSpacePanning = true;
+if (EMBED) {
+  // Inside a page: scrolling and vertical swipes should scroll the page, not zoom or turn the model.
+  controls.enableZoom = false;
+  controls.autoRotateSpeed = 0.8;
+  canvas.style.touchAction = 'pan-y';
+  controls.addEventListener('start', () => (controls.autoRotate = false));
+}
 
 const key = new THREE.DirectionalLight(0xfff3e6, 2.2);
 key.position.set(-120, 220, 160);
@@ -377,13 +390,19 @@ let speed = 1; // short-lived speed-up when jumping between steps
 let instant = false; // long jumps skip the animation altogether
 let playback = 1; // the viewer's chosen speed: 1, 0.5 or 0.25
 try { playback = Number(localStorage.getItem('guide:playback')) || 1; } catch { /* storage is optional */ }
+if (EMBED) playback = EMBED_SPEED;
+let lastTween = null; // the tween most recently started, so a caller can cancel it later
 function tween(duration, fn) {
   if (instant) {
     fn(1);
+    lastTween = null;
     return Promise.resolve();
   }
   const d = reduceMotion ? Math.min(duration, 0.12) : (duration * speed) / playback;
-  return new Promise((resolve) => tweens.add({ t: 0, d, fn, resolve }));
+  return new Promise((resolve) => {
+    lastTween = { t: 0, d, fn, resolve };
+    tweens.add(lastTween);
+  });
 }
 function stepTweens(dt) {
   for (const tw of [...tweens]) {
@@ -814,14 +833,19 @@ function viewDir(azimuthDeg, elevationDeg = 24) {
   return new V3(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e));
 }
 
+// Only one camera move at a time: a new one takes over from wherever the last one had got to.
+let cameraMove = null;
 function animateCamera(pos, target, duration) {
+  if (cameraMove && tweens.delete(cameraMove)) cameraMove.resolve();
   const p0 = camera.position.clone();
   const t0 = controls.target.clone();
-  return tween(duration, (k) => {
+  const finished = tween(duration, (k) => {
     const e = ease(k);
     camera.position.lerpVectors(p0, pos, e);
     controls.target.lerpVectors(t0, target, e);
   });
+  cameraMove = lastTween;
+  return finished;
 }
 
 function fit(box, azimuth, duration = 1, minRadius = 22) {
@@ -937,13 +961,36 @@ async function replay() {
 let autoplay = false;
 async function playAll() {
   autoplay = true;
+  controls.autoRotate = false;
   render();
   while (autoplay && done < product.steps.length) {
     await next();
     await wait(0.5);
   }
   autoplay = false;
+  if (EMBED && done >= product.steps.length) controls.autoRotate = true;
   render();
+}
+
+// The embed's one button: watch the build from the start, pause, or carry on.
+async function embedPlay() {
+  if (autoplay) {
+    autoplay = false;
+    render();
+    return;
+  }
+  if (busy) return;
+  if (done >= product.steps.length) await jumpTo(0);
+  playAll();
+}
+
+function renderEmbed() {
+  const total = product.steps.length;
+  const step = product.steps[done];
+  $('embedStep').textContent = done >= total
+    ? `Built · ${product.parts.length} parts · ${total} steps`
+    : `Step ${done + 1} of ${total} · ${step.title}`;
+  $('embedPlay').textContent = autoplay ? '❚❚ Pause' : done >= total ? '▶ Watch it build' : '▶ Keep building';
 }
 
 function restart() {
@@ -991,6 +1038,7 @@ function renderPrompt() {
 function render() {
   renderInfo();
   renderPrompt();
+  if (EMBED) renderEmbed();
   const total = product.steps.length;
   const card = $('card');
   // One segment per step reads well up to a few dozen steps; past that, one continuous bar.
@@ -1506,11 +1554,12 @@ async function start() {
 
   const clock = new THREE.Clock();
   let first = true;
-  renderer.setAnimationLoop(() => {
-    const dt = Math.min(clock.getDelta(), 0.05);
+  let elapsed = 0;
+  const frame = (dt) => {
+    elapsed += dt;
     stepTweens(dt);
     controls.update();
-    updatePulse(clock.elapsedTime);
+    updatePulse(elapsed);
     updateLabels();
     placeInfo();
     renderer.render(scene, camera);
@@ -1519,7 +1568,10 @@ async function start() {
       $('loading').hidden = true;
       window.__guideReady = true;
     }
-  });
+  };
+  renderer.setAnimationLoop(() => frame(Math.min(clock.getDelta(), 0.05)));
+  // For recording smooth videos on slow machines: stop the clock and step frames by hand.
+  window.guide.capture = { pause: () => renderer.setAnimationLoop(null), frame };
 
   // After the opening shot, set out whatever the first step works on.
   await wait(1.4);
@@ -1528,6 +1580,16 @@ async function start() {
   showGhosts();
   render();
   if (staged.length) frameCurrent(1);
+  if (EMBED) {
+    // Open on the finished product, slowly turning, with the build a press away.
+    $('embedBar').hidden = false;
+    $('embedOpen').href = `${location.pathname}?product=${PRODUCT_NAME}`;
+    $('embedPlay').addEventListener('click', embedPlay);
+    await jumpTo(product.steps.length);
+    controls.autoRotate = true;
+    // Tell the page it can swap its placeholder image for this, now the finished product shows.
+    if (window.parent !== window) window.parent.postMessage({ kaputle: 'ready' }, '*');
+  }
 }
 
 start();
