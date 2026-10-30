@@ -127,7 +127,7 @@ for (const [side, sx, stamp] of [['R', 1, 'CR'], ['L', -1, 'CL']]) {
   const rx = sx * (PANEL_IN - 1.2 - 0.5);
   sideRunners[side] = RUN_Y.map((y, j) => board(`runner${side}${j}`, `Cabinet runner IKEA ${stamp}`, [1.0, 2, 38], [rx, y, 0], ST, { label: '10085235', parent: panels[side] }));
   sideScrews[side] = RUN_Y.flatMap((y, j) => [-15, 16].map((z, k) =>
-    hw(`screw5${side}${j}${k}`, 'Screw', '107716', 'screw', 0.25, 1.6, [sx * (PANEL_IN - 1.2 - 1.0), y, z], [sx, 0, 0], ST, panels[side])));
+    hw(`screw5${side}${j}${k}`, 'Screw', '107716', 'screw', 0.25, 2.8, [sx * (PANEL_IN - 1.2 - 1.0), y, z], [sx, 0, 0], ST, panels[side]))); // through the runner into the panel
 }
 // Step 7: glides.
 const s7 = Object.entries(legs).map(([k, leg]) => {
@@ -188,7 +188,7 @@ const divScrews = {};
 for (const [stamp, sx] of [['CL', 1], ['CR', -1]]) {
   divRunners[stamp] = RUN_Y.map((y, j) => board(`runnerDiv${stamp}${j}`, `Cabinet runner IKEA ${stamp}`, [1.0, 2, 44], [sx * 2.0, y, 0], ST, { label: '10085261', parent: divF }));
   divScrews[stamp] = RUN_Y.flatMap((y, j) => [-21.5, STRIP_Z, 21.5].map((z, k) =>
-    hw(`screw14${stamp}${j}${k}`, 'Screw', '108462', 'screw', 0.25, 1.6, [sx * 2.5, y, z], [-sx, 0, 0], ST, divF)));
+    hw(`screw14${stamp}${j}${k}`, 'Screw', '108462', 'screw', 0.25, 2.0, [sx * 2.5, y, z], [-sx, 0, 0], ST, divF))); // reaches the thinner strip too
 }
 const s16 = [1, -1].flatMap((sx) => ROW_Y.map((y, j) =>
   hw(`stud16${sx > 0 ? 'R' : 'L'}${j}`, 'Cam stud', '603440', 'pin', 0.35, 3.4, [sx * 1.5, y + 0.7, RAIL_Z], [-sx, 0, 0], ST, divF)));

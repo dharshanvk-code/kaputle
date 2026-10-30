@@ -41,7 +41,7 @@ const SYSTEM = `You convert product assembly manuals into product files for a 3D
 Reply with exactly one JSON object inside a \`\`\`json code fence and nothing after the fence.
 
 # Coordinates
-- Centimetres. x runs left to right across the product, y is up, z runs back to front (front is +z). The floor is y = 0.
+- Centimetres. x runs left to right across the product, y is up, z runs back to front (front is +z). The floor is y = 0, and the finished product stands on it: its lowest point (a foot, glide or panel edge) is at exactly y = 0.
 - "pos" is where a part sits in the FINISHED product standing the right way up, even when the manual builds it upside down.
 - Boards are boxes centred on "pos", with "size" [x, y, z] in the finished orientation.
 - Dowels and pins are cylinders centred on "pos". Screws and nails have their HEAD at "pos" and the shaft pointing along "dir". Knobs are centred on "pos", with "dir" pointing from the knob's head into the face it's fixed to.
@@ -59,7 +59,7 @@ Reply with exactly one JSON object inside a \`\`\`json code fence and nothing af
 - "id": unique and short, for example "legL", "bolt1".
 - "name": plain English, for example "Hanger bolt".
 - "label": the part number printed in the manual (for example "114334"), or the letter the manual gives a board, or "" if there is none.
-- "shape": one of ${SHAPES.join(', ')}.
+- "shape": one of ${SHAPES.join(', ')}. Use "knob" only for drawer and door knobs; cam locks, caps and studs are "pin".
 - "size" for boards; "radius" and "length" for every other shape.
 - "pos", and "dir" for every non-board part.
 - "material": one of ${MATERIALS.join(', ')}. Pick the closest finish.
@@ -85,7 +85,7 @@ Reply with exactly one JSON object inside a \`\`\`json code fence and nothing af
 2. List every physical piece separately: "4x" means four parts. Give matching boards names that tell them apart by position, for example "Left side panel" and "Right side panel". Every part is fitted in exactly one step. Tools such as the supplied wrench or Allen key are not parts; name them in the step text.
 3. Use the manual's printed part numbers as hardware labels.
 4. Manuals rarely give measurements. Estimate sizes from the drawings' proportions and typical sizes for that kind of product, and record each estimate in "notes".
-5. Line hardware up with what it joins: a dowel joining a shelf end to a side panel is centred on the joint face, half in each board.
+5. Line hardware up with what it joins: a dowel joining a shelf end to a side panel is centred on the joint face, half in each board. Every dowel's two ends, and every screw's and nail's tip, must end inside wood, so check lengths against board thickness: nothing should poke out of a visible face.
 6. If the manual fits hardware to a part while that part lies on the floor, use "parent". If it builds upside down or on its side, set "startFlipped" or "startPose" and build in that orientation. When the manual turns a sub-assembly over on the floor, add a turn step.
 7. Leave out steps that only fix the product to a wall (drilling, wall plugs). Mention them in "notes".
 

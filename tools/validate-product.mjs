@@ -119,7 +119,69 @@ export function validateProduct(product) {
     if (n === 0) err(`${id}: never fitted in any step. Every part must be used exactly once.`);
     if (n > 1) err(`${id}: fitted in ${n} steps. Every part must be used exactly once.`);
   }
-  return errors;
+  if (errors.length) return errors;
+  return [...errors, ...checkGeometry(product)];
+}
+
+// ---- geometry: the finished product should look physically right
+
+const TOL = 0.05; // cm
+const unit = (v) => {
+  const n = Math.hypot(...v);
+  return v.map((x) => x / n);
+};
+const along = (pos, dir, t) => pos.map((x, i) => x + dir[i] * t);
+
+// The two ends of a hardware part's axis. Screws and nails run from the head along `dir`;
+// everything else is centred on `pos`.
+function axisEnds(p) {
+  const dir = unit(p.dir);
+  if (p.shape === 'screw' || p.shape === 'nail') return [p.pos, along(p.pos, dir, p.length)];
+  return [along(p.pos, dir, -p.length / 2), along(p.pos, dir, p.length / 2)];
+}
+
+function lowestPoint(p) {
+  if (p.shape === 'board') return p.pos[1] - p.size[1] / 2;
+  const dir = unit(p.dir);
+  const headR = p.shape === 'screw' ? p.radius * 2.1 : p.shape === 'nail' ? p.radius * 3 : p.radius;
+  const side = Math.sqrt(Math.max(0, 1 - dir[1] ** 2)); // how far the radius reaches downwards
+  const [a, b] = axisEnds(p);
+  const headEnd = p.shape === 'screw' || p.shape === 'nail' ? a : null;
+  return Math.min(a[1] - (headEnd ? headR : p.radius) * side, b[1] - p.radius * side);
+}
+
+const insideBox = (pt, centre, size) => pt.every((x, i) => Math.abs(x - centre[i]) <= size[i] / 2 + TOL);
+const fmt = (n) => String(Math.round(n * 100) / 100);
+
+function checkGeometry(product) {
+  const problems = [];
+  const boards = product.parts.filter((p) => p.shape === 'board');
+  // Knobs count as solid for the screws that hold them on.
+  const solids = [
+    ...boards.map((b) => ({ id: b.id, centre: b.pos, size: b.size })),
+    ...product.parts.filter((p) => p.shape === 'knob').map((k) => ({ id: k.id, centre: k.pos, size: [k.radius * 2, k.radius * 2, k.radius * 2].map((s, i) => (Math.abs(unit(k.dir)[i]) > 0.9 ? k.length : s)) })),
+  ];
+  const inSolid = (pt) => solids.some((s) => insideBox(pt, s.centre, s.size));
+
+  // It rests on the floor.
+  const low = Math.min(...product.parts.map(lowestPoint));
+  if (Math.abs(low) > 0.1) {
+    problems.push(`The finished product's lowest point is at y = ${fmt(low)} cm, but it should stand on the floor at y = 0. Move every part by ${fmt(-low)} cm in y.`);
+  }
+
+  // Hardware ends inside the wood it joins, instead of poking out into the air.
+  for (const p of product.parts) {
+    if (!['dowel', 'screw', 'nail'].includes(p.shape)) continue;
+    const [a, b] = axisEnds(p);
+    if (p.shape === 'dowel') {
+      for (const [end, which] of [[a, 'one end'], [b, 'the other end']]) {
+        if (!inSolid(end)) problems.push(`${p.id}: ${which} of this dowel, at [${end.map(fmt).join(', ')}], sticks out of the boards it joins. Shorten it or move it so both ends are inside wood.`);
+      }
+    } else if (!inSolid(b)) {
+      problems.push(`${p.id}: the tip of this ${p.shape}, at [${b.map(fmt).join(', ')}], ends outside any board, so it pokes out into the air. Shorten it or move it so the tip is inside wood.`);
+    }
+  }
+  return problems;
 }
 
 // CLI: checks the files given, or every product in guide/products.
