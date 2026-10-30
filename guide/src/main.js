@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { $, V3, Q, reduceMotion, PRODUCT_NAME, PRODUCT_URL, EMBED } from './config.js';
 import { renderer, scene, camera, controls, canvas, viewDir, resize } from './scene.js';
-import { buildPart, assembledQuat, partExtent, absV } from './parts.js';
+import { buildPart, assembledQuat, partExtent, partCentre, absV } from './parts.js';
 import { drillHoles } from './holes.js';
 import { layOut, buildTray } from './pile.js';
 import { stepTweens, wait, timing } from './tween.js';
@@ -42,7 +42,8 @@ async function start() {
     const q = assembledQuat(p);
     G.finalM[p.id] = new THREE.Matrix4().compose(new V3(...p.pos), q, new V3(1, 1, 1));
     const ext = absV(partExtent(p).applyQuaternion(q)).multiplyScalar(0.5);
-    G.assembledBox.expandByPoint(new V3(...p.pos).sub(ext)).expandByPoint(new V3(...p.pos).add(ext));
+    const centre = partCentre(p).applyQuaternion(q).add(new V3(...p.pos));
+    G.assembledBox.expandByPoint(centre.clone().sub(ext)).expandByPoint(centre.clone().add(ext));
   }
   // The size is worked out from the boards (not hardware or metal fittings like wall brackets),
   // so every product states it the same way.

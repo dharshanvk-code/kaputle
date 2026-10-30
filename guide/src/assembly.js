@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { V3, Q } from './config.js';
 import { scene } from './scene.js';
-import { UP, DOWN, assembledQuat, partExtent, canonicalAxis } from './parts.js';
+import { UP, DOWN, assembledQuat, partExtent, partCentre, canonicalAxis } from './parts.js';
 import { tween, wait, ease, tapEase } from './tween.js';
 import { G, assembly, partById, rootOf, holderOf, holderMatrix, isPlaced, nextFlip, X_AXIS, Z_AXIS } from './state.js';
 
@@ -17,7 +17,7 @@ export function restY(q, untilStep = Infinity) {
     if (!(G.stepOf[rootOf(p.id)] < untilStep)) continue;
     const rot = assembledQuat(p).premultiply(q);
     const half = partExtent(p).multiplyScalar(0.5);
-    const centre = new V3(...p.pos).sub(G.pivot).applyQuaternion(q);
+    const centre = partCentre(p).applyQuaternion(assembledQuat(p)).add(new V3(...p.pos)).sub(G.pivot).applyQuaternion(q);
     // The lowest corner of the part's box, turned.
     let low = 0;
     for (const [axis, h] of [[new V3(1, 0, 0), half.x], [new V3(0, 1, 0), half.y], [new V3(0, 0, 1), half.z]]) {

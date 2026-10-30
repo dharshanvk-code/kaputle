@@ -1,7 +1,7 @@
 // Camera moves: framing each step, the whole build, or a part.
 import * as THREE from 'three';
 import { camera, controls, viewDir } from './scene.js';
-import { partExtent } from './parts.js';
+import { partExtent, partCentre } from './parts.js';
 import { pileBox } from './pile.js';
 import { tween, ease, cancel, timing } from './tween.js';
 import { G, assembly, partById, isPlaced } from './state.js';
@@ -38,7 +38,8 @@ function stepBox(i) {
     const t = targetPose(p);
     const ext = partExtent(p).applyQuaternion(t.quat);
     ext.set(Math.abs(ext.x), Math.abs(ext.y), Math.abs(ext.z)).multiplyScalar(0.5);
-    box.expandByPoint(t.pos.clone().sub(ext)).expandByPoint(t.pos.clone().add(ext));
+    const centre = partCentre(p).applyQuaternion(t.quat).add(t.pos);
+    box.expandByPoint(centre.clone().sub(ext)).expandByPoint(centre.clone().add(ext));
     box.expandByPoint(t.pos.clone().add(approachOffset(step, p, t)));
   }
   return box;

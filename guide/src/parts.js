@@ -79,9 +79,16 @@ export function assembledQuat(p) {
   return new Q().setFromUnitVectors(p.shape === 'screw' || p.shape === 'nail' ? DOWN : UP, dir);
 }
 
+// The size of a part's bounding box, in its own frame.
 export function partExtent(p) {
   if (p.shape === 'board') return new V3(...p.size);
   return new V3(p.radius * 2, p.length, p.radius * 2);
+}
+
+// Where that box's centre is, in the part's own frame. Screws and nails are built from the head,
+// with the shaft running down, so their middle is half a length below the origin.
+export function partCentre(p) {
+  return p.shape === 'screw' || p.shape === 'nail' ? new V3(0, -p.length / 2, 0) : new V3();
 }
 
 // The axis a part travels along as it goes in: screws and nails are built pointing down.
