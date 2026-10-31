@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Turns an assembly-manual PDF into a product file for the guide player.
 //
-//   npm run manual -- path/to/manual.pdf [--out guide/products/my-table.json] [--name "My table"]
+//   npm run manual -- path/to/manual.pdf [--out guide/products/my-table.json] [--name "My table"] [--effort high]
 //
 // Claude reads the manual, drafts the file, and the draft is checked against what the player
 // expects. If the check finds problems, Claude gets the list and fixes them (up to twice).
@@ -13,18 +13,21 @@ import { fileURLToPath } from 'node:url';
 import Anthropic from '@anthropic-ai/sdk';
 import { validateProduct, SHAPES, MATERIALS, TOOLS } from './validate-product.mjs';
 import { formatProduct } from './format-product.mjs';
+import { expandCopies } from './expand-copies.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, '..');
 const MODEL = 'claude-opus-5-5';
 const MAX_REPAIRS = 2;
+const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
 
 function parseArgs(argv) {
-  const args = { pdf: null, out: null, name: null };
+  const args = { pdf: null, out: null, name: null, effort: 'high' };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--out') args.out = argv[++i];
     else if (a === '--name') args.name = argv[++i];
+    else if (a === '--effort') args.effort = argv[++i];
     else if (a === '-h' || a === '--help') args.help = true;
     else if (!args.pdf) args.pdf = a;
   }
@@ -65,6 +68,7 @@ Reply with exactly one JSON object inside a \`\`\`json code fence and nothing af
 - "material": one of ${MATERIALS.join(', ')}. Pick the closest finish.
 - "parent" (optional): the id of a part this one is fitted to BEFORE that part is placed, for example bolts screwed into a leg that is still lying flat. The child then travels with its parent. Boards can have parents too (a drawer's sides fitted to its front), and parents can nest.
 - "stageUp" (optional, on a part that others are fitted to on the floor): the face, as a direction in the finished product, that faces up while it's worked on. For example [0, 0, -1] for a drawer front lying face down.
+- "copies" (use it for repeated parts): instead of writing one entry per screw, write one entry with "copies": a list of positions, or of objects with "pos" plus any field that differs for that copy (often "dir" or "parent"). For example {"id": "dowel", ..., "parent": "sideL", "copies": [[-17, 43.8, -5], [-17, 43.8, 5], {"pos": [17, 43.8, -5], "parent": "sideR"}]}. The copies become parts "dowel-1", "dowel-2", ... in order, and a step that lists "dowel" fits every copy. Only group parts that are fitted in the same step. Problems reported back to you may name single copies, such as "dowel-3".
 
 # Steps
 - "manual": the step number printed in the manual.
@@ -105,13 +109,14 @@ function echoable(content) {
   return content.filter((b, i) => i > lastFallback || !['thinking', 'redacted_thinking', 'tool_use'].includes(b.type));
 }
 
-async function ask(client, messages) {
+// Effort sets how much Claude thinks: lower is faster and cheaper, higher catches more mistakes.
+async function ask(client, messages, effort) {
   const stream = client.beta.messages.stream({
     model: MODEL,
-    max_tokens: 64000,
+    max_tokens: 128000, // the model's limit; long manuals need it (thinking counts too)
     betas: ['server-side-fallback-2026-07-01'],
     fallbacks: 'default',
-    output_config: { effort: 'high' },
+    output_config: { effort },
     system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
     messages,
   });
@@ -133,8 +138,12 @@ async function ask(client, messages) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help || !args.pdf) {
-    console.log('Usage: node tools/manual-to-guide.mjs <manual.pdf> [--out guide/products/name.json] [--name "Product name"]');
+    console.log('Usage: node tools/manual-to-guide.mjs <manual.pdf> [--out guide/products/name.json] [--name "Product name"] [--effort low|medium|high|xhigh|max]');
     process.exit(args.help ? 0 : 2);
+  }
+  if (!EFFORTS.includes(args.effort)) {
+    console.error(`--effort must be one of ${EFFORTS.join(', ')}.`);
+    process.exit(2);
   }
   const pdf = fs.readFileSync(args.pdf);
   const client = new Anthropic();
@@ -149,16 +158,17 @@ async function main() {
     ],
   }];
 
-  console.log(`Reading ${path.basename(args.pdf)} with ${MODEL}…`);
+  console.log(`Reading ${path.basename(args.pdf)} with ${MODEL} at ${args.effort} effort…`);
+  const started = Date.now();
   let product = null;
   let problems = [];
   for (let attempt = 0; attempt <= MAX_REPAIRS; attempt++) {
-    const message = await ask(client, messages);
+    const message = await ask(client, messages, args.effort);
     if (message.stop_reason === 'refusal') throw new Error('Claude declined this request. Try a different manual.');
-    if (message.stop_reason === 'max_tokens') throw new Error('The product file was too long to finish. Try a manual with fewer parts.');
+    if (message.stop_reason === 'max_tokens') throw new Error('The reply hit the output limit before the product file was finished. Try a lower --effort, or a shorter manual.');
     const text = message.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n');
     try {
-      product = extractJson(text);
+      product = expandCopies(extractJson(text));
       problems = validateProduct(product);
     } catch (e) {
       product = null;
@@ -179,7 +189,7 @@ async function main() {
   const out = args.out || path.join(repo, 'guide/products', `${slug(product.name || path.basename(args.pdf, '.pdf'))}.json`);
   fs.writeFileSync(out, formatProduct(product));
   const rel = path.relative(repo, out);
-  console.log(`\nWrote ${rel}: ${product.parts.length} parts, ${product.steps.length} steps.`);
+  console.log(`\nWrote ${rel}: ${product.parts.length} parts, ${product.steps.length} steps, in ${Math.round((Date.now() - started) / 1000)} s.`);
   if (problems.length) {
     console.log(`\nStill ${problems.length} problem${problems.length === 1 ? '' : 's'} after ${MAX_REPAIRS} fixes. Edit the file by hand:`);
     for (const p of problems) console.log(`  - ${p}`);

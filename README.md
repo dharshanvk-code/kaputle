@@ -69,6 +69,9 @@ npm run manual -- ~/Downloads/manual.pdf --name "Nightstand"
 ```
 
 It lists everything it had to estimate (manuals rarely give measurements), so you know what to check.
+Repeated hardware can be written once with a list of positions (`copies`), which the tool expands
+before checking, so long manuals fit in one reply. `--effort low|medium|high|xhigh|max` trades speed
+for care (default `high`).
 The dresser is big enough that its file is written by a script instead:
 [`tools/products/hemnes.mjs`](tools/products/hemnes.mjs).
 
