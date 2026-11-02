@@ -16,7 +16,12 @@ it down or tap any part to see what it is and where it goes.
 |---|---|---|---|
 | [8-drawer dresser](https://dharshanvk-code.github.io/kaputle/guide/?product=hemnes) | 52-page IKEA HEMNES manual | 497 | 95 |
 | [Console table](https://dharshanvk-code.github.io/kaputle/guide/?product=console) | 8-page IKEA LACK manual | 40 | 11 |
+| [2-drawer chest](https://dharshanvk-code.github.io/kaputle/guide/?product=hemnes-2-drawer) | 32-page IKEA HEMNES manual | 185 | 42 |
+| [End table](https://dharshanvk-code.github.io/kaputle/guide/?product=end-table) | 2-page Furinno manual | 30 | 10 |
 | [Bookshelf](https://dharshanvk-code.github.io/kaputle/guide/?product=bookshelf) | A hand-written example | 32 | 10 |
+
+The 2-drawer chest and the end table were drafted by the [manual tool](#turning-a-manual-into-a-guide)
+and published as it wrote them, with no hand edits.
 
 ## How it works
 
@@ -117,7 +122,7 @@ tools/                    the manual tool, validator, formatter, recorder and lo
 tests/                    end-to-end tests
 ```
 
-Not affiliated with IKEA. The manuals are IKEA's; the 3D models and guides are original, with sizes
+Not affiliated with IKEA or Furinno. The manuals are theirs; the 3D models and guides are original, with sizes
 estimated from the drawings.
 
 © 2026 Dharshan Vetrivelan. All rights reserved.
