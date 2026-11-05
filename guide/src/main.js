@@ -14,6 +14,7 @@ import { fit, overviewBox, frameCurrent } from './camera.js';
 import { next, back, jumpTo, replay, playAll, embedPlay } from './steps.js';
 import { render, updateLabels } from './ui.js';
 import { selectPart, placeInfo, screenPoint } from './info.js';
+import { countView } from './analytics.js';
 
 async function start() {
   try {
@@ -25,6 +26,7 @@ async function start() {
     return;
   }
   $('productName').textContent = G.product.name;
+  countView(G.product.name);
   $('partCount').textContent = `${G.product.parts.length} parts · ${G.product.steps.length} steps`;
   if (G.product.source?.url) {
     // The manual this guide was built from, linked rather than copied.

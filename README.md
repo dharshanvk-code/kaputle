@@ -118,6 +118,7 @@ guide/
     parts.js, holes.js    building a part's model and its drilled holes
     pile.js               laying out the box contents
     scene.js, tween.js    the 3D view, and the animation clock
+    analytics.js          visit counts on the published site (GoatCounter, no cookies)
 tools/                    the manual tool, validator, formatter, recorder and local server
 tests/                    end-to-end tests
 ```

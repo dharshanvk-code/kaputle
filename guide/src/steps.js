@@ -6,6 +6,7 @@ import { G } from './state.js';
 import { playStep, prepareStep, unprepareStep, showGhosts, clearGhosts } from './assembly.js';
 import { fit, overviewBox, frameCurrent } from './camera.js';
 import { render, dismissTip } from './ui.js';
+import { countFinished, countEmbedPlay } from './analytics.js';
 
 export async function next() {
   if (G.busy || G.done >= G.product.steps.length) return;
@@ -15,6 +16,7 @@ export async function next() {
   render();
   await playStep(G.done, true);
   G.done++;
+  if (G.done === G.product.steps.length && !timing.instant) countFinished(G.product.name);
   await prepareStep(G.done);
   G.busy = false;
   showGhosts();
@@ -81,6 +83,7 @@ export async function embedPlay() {
     return;
   }
   if (G.busy) return;
+  countEmbedPlay(G.product.name);
   if (G.done >= G.product.steps.length) await jumpTo(0);
   playAll();
 }
