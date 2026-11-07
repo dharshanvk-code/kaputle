@@ -1,0 +1,7 @@
+[
+  {"id":"end-table","name":"End table","spec":"Wood-effect chipboard · built from a 2-page paper manual · sizes estimated","parts":30,"steps":10,"image":"images/end-table.jpg"},
+  {"id":"bookshelf","name":"Flat-pack bookshelf","spec":"Birch plywood · a hand-written example, not from a manual","parts":32,"steps":10,"image":"images/bookshelf.jpg"},
+  {"id":"console","name":"Console table","spec":"Black-brown · built from an 8-page paper manual · sizes estimated","parts":40,"steps":11,"image":"images/console.jpg"},
+  {"id":"hemnes-2-drawer","name":"2-drawer chest","spec":"White stain · built from a 32-page paper manual · sizes estimated","parts":185,"steps":42,"image":"images/hemnes-2-drawer.jpg"},
+  {"id":"hemnes","name":"8-drawer dresser","spec":"White stain · 8 drawers · built from a 52-page paper manual · sizes estimated","parts":497,"steps":95,"image":"images/hemnes.jpg"}
+]

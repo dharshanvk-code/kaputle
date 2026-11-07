@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "manual": "node tools/manual-to-guide.mjs",
     "build:hemnes": "node tools/products/hemnes.mjs",
-    "record": "node tools/record-video.mjs"
+    "record": "node tools/record-video.mjs",
+    "build:library": "node tools/build-library.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0"

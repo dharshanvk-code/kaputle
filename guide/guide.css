@@ -210,3 +210,29 @@ html.embed .stage { grid-template-columns: minmax(0, 1fr); grid-template-rows: m
   .embed-bar { border-radius: 14px; }
   .embed-step { flex-basis: 100%; order: 3; padding-left: 4px; }
 }
+
+/* Opened from the home screen: no browser bar above, so keep clear of the notch and home bar. */
+.topbar { padding-top: max(10px, env(safe-area-inset-top, 0px)); }
+.side { padding-bottom: max(28px, env(safe-area-inset-bottom, 0px)); }
+
+/* The app's home screen: the list of guides. */
+body.library-page { overflow: auto; height: auto; min-height: 100%; }
+.library { max-width: 1080px; margin: 0 auto; padding: 32px max(16px, env(safe-area-inset-right, 0px)) max(40px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.library h1 { font: 800 clamp(30px, 5vw, 44px)/1.05 var(--font-display); letter-spacing: -0.8px; margin: 0 0 10px; }
+.library .lede { margin: 0 0 24px; max-width: 60ch; color: var(--ink-soft); font-size: 16px; }
+.guides { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 16px; }
+.guide-card { display: flex; flex-direction: column; height: 100%; overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); color: inherit; text-decoration: none; transition: border-color 0.15s, transform 0.15s; }
+.guide-card:hover { border-color: var(--ink-soft); transform: translateY(-2px); }
+.guide-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.guide-card img { display: block; width: 100%; height: auto; aspect-ratio: 8 / 5; object-fit: cover; background: var(--scene); }
+.guide-card .body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 4px; }
+.guide-card h2 { font: 700 20px/1.2 var(--font-display); margin: 0; }
+.guide-card p { margin: 0; font-size: 14px; color: var(--ink-soft); }
+.guide-card .meta { margin-top: 4px; font: 500 12px var(--font-mono); }
+.library-error { color: var(--ink-soft); }
+.library-note { margin: 28px 0 0; font-size: 13px; color: var(--ink-soft); }
+.install { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 20px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
+.install div { flex: 1 1 260px; display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+.install span { color: var(--ink-soft); }
+.top-actions { display: flex; gap: 8px; }
+a.btn { color: inherit; text-decoration: none; }

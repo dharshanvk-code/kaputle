@@ -201,6 +201,7 @@ async function main() {
   fs.writeFileSync(out, formatProduct(product));
   const rel = path.relative(repo, out);
   console.log(`\nWrote ${rel}: ${product.parts.length} parts, ${product.steps.length} steps, in ${Math.round((Date.now() - started) / 1000)} s, about $${spent.toFixed(2)}.`);
+  console.log('Run `npm run build:library` to add it to the app\'s list of guides.');
   if (problems.length) {
     console.log(`\nStill ${problems.length} problem${problems.length === 1 ? '' : 's'} after ${MAX_REPAIRS} fixes. Edit the file by hand:`);
     for (const p of problems) console.log(`  - ${p}`);

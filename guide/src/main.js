@@ -15,6 +15,7 @@ import { next, back, jumpTo, replay, playAll, embedPlay } from './steps.js';
 import { render, updateLabels } from './ui.js';
 import { selectPart, placeInfo, screenPoint } from './info.js';
 import { countView } from './analytics.js';
+import { startApp } from './app.js';
 
 async function start() {
   try {
@@ -150,4 +151,5 @@ window.guide = {
   capture: null, // { pause, frame }: stop the clock and step frames by hand, set once running
 };
 
+startApp({ embed: EMBED });
 start();

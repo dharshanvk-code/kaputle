@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kaputle Guides</title>
+<meta name="description" content="Interactive 3D assembly guides, rebuilt from paper manuals. Pick a guide to start building.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#d9531c">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kaputle">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<link rel="stylesheet" href="guide.css">
+</head>
+<body class="library-page">
+<header class="topbar">
+  <a class="brand" href="https://dharshanvk-code.github.io/" title="Back to Dharshan Vetrivelan’s home page">
+    <span class="logo" aria-label="Kaputle">Kapu<span class="loose">t</span>le</span>
+    <span class="tag">Assembly guides</span>
+  </a>
+</header>
+
+<main class="library">
+  <h1>Pick something to build</h1>
+  <p class="lede">Every guide follows its paper manual step by step. Turn it around, slow it down, or tap any part to see what it is.</p>
+
+  <aside class="install" id="install" hidden>
+    <div>
+      <strong>Use Kaputle like an app</strong>
+      <span id="installHow">Add it to your home screen. Guides you’ve opened then work without internet.</span>
+    </div>
+    <button type="button" class="btn primary" id="installBtn" hidden>Install</button>
+    <button type="button" class="btn ghost" id="installClose" aria-label="Dismiss">Not now</button>
+  </aside>
+
+  <ul class="guides" id="guides" aria-live="polite"></ul>
+  <p class="library-note">Not affiliated with IKEA or Furinno. The manuals are theirs; the 3D models and guides are original, with sizes estimated from the drawings.</p>
+</main>
+
+<script type="module" src="src/library.js"></script>
+</body>
+</html>

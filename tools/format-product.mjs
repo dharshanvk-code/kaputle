@@ -22,7 +22,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const productsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'guide', 'products');
   const files = process.argv.length > 2
     ? process.argv.slice(2)
-    : fs.readdirSync(productsDir).filter((f) => f.endsWith('.json')).map((f) => path.join(productsDir, f));
+    : fs.readdirSync(productsDir).filter((f) => f.endsWith('.json') && f !== 'index.json').map((f) => path.join(productsDir, f));
   for (const file of files) {
     fs.writeFileSync(file, formatProduct(JSON.parse(fs.readFileSync(file, 'utf8'))));
     console.log(`Formatted ${path.relative(process.cwd(), file)}`);

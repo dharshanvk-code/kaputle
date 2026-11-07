@@ -41,6 +41,8 @@ It can follow what real manuals do:
   pieces out in front of the build, the right face up, and `turn` steps turn them over.
 - **Lower one piece onto another:** `lower` lifts the build and sets it down onto a part.
 - **Embed it in another page:** `?embed` shows just the 3D view with a "Watch it build" button.
+- **Install it like an app:** on a phone, "Add to Home Screen" opens Kaputle full-screen on a
+  list of every guide, and any guide opened once keeps working with no internet.
 
 ### The product file
 
@@ -103,14 +105,19 @@ puts everything back in the box.
 |---|---|
 | `npm run manual -- <pdf>` | Drafts a product file from a manual PDF |
 | `npm run build:hemnes` | Rewrites the dresser's product file |
+| `npm run build:library` | Updates the app's list of guides and their pictures, after adding a guide |
 | `npm run record -- <product>` | Records a time-lapse video of a guide building itself (needs ffmpeg) |
 
 ## Project layout
 
 ```
 guide/
-  index.html, guide.css   the page
-  products/               one JSON file per product
+  index.html, guide.css   the guide page
+  library.html            the app's home screen: every guide
+  manifest.webmanifest    what a phone needs to install it as an app, with icons/
+  sw.js                   keeps the app working offline
+  products/               one JSON file per product, and index.json, the list of guides
+  images/                 a picture of each finished product, for the list
   src/
     main.js               loads a product and starts the player
     state.js              the shared state: parts, current step, what's set out on the floor
@@ -123,6 +130,7 @@ guide/
     pile.js               laying out the box contents
     scene.js, tween.js    the 3D view, and the animation clock
     analytics.js          visit counts on the published site (GoatCounter, no cookies)
+    app.js, library.js    offline support and the home screen
 tools/                    the manual tool, validator, formatter, recorder and local server
 tests/                    end-to-end tests
 ```

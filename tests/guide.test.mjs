@@ -17,7 +17,7 @@ import { serve } from '../tools/serve.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const threeDir = path.join(root, 'node_modules', 'three');
-const PRODUCTS = fs.readdirSync(path.join(root, 'guide/products')).filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5));
+const PRODUCTS = fs.readdirSync(path.join(root, 'guide/products')).filter((f) => f.endsWith('.json') && f !== 'index.json').map((f) => f.slice(0, -5));
 const LOAD = { timeout: 300_000 };
 
 let server;

@@ -14,7 +14,7 @@ export default [
   },
   {
     // Tests and the video recorder run snippets inside the guide page too.
-    files: ['tests/**/*.mjs', 'tools/record-video.mjs'],
+    files: ['tests/**/*.mjs', 'tools/record-video.mjs', 'tools/build-library.mjs'],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
   {
