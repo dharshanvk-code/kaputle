@@ -73,7 +73,11 @@ export ANTHROPIC_API_KEY=...
 npm run manual -- ~/Downloads/manual.pdf --name "Nightstand"
 ```
 
-It lists everything it had to estimate (manuals rarely give measurements), so you know what to check.
+The check also copies the manual's printed parts list and makes sure every part number appears
+exactly that many times, that nothing floats in mid-air, and that no hardware pokes out through the
+wood. Each round reports every problem at once, and the PDF is cached so repair rounds cost little.
+At the end the tool prints the time taken and the cost, and lists everything it had to estimate
+(manuals rarely give measurements), so you know what to check.
 Repeated hardware can be written once with a list of positions (`copies`), which the tool expands
 before checking, so long manuals fit in one reply. `--effort low|medium|high|xhigh|max` trades speed
 for care (default `high`).

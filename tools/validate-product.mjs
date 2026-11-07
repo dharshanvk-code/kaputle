@@ -120,7 +120,35 @@ export function validateProduct(product) {
     if (n > 1) err(`${id}: fitted in ${n} steps. Every part must be used exactly once.`);
   }
   if (errors.length) return errors;
+  // The file is playable. Report every remaining problem together, so one repair round fixes them all.
+  checkInventory(product, err);
   return [...errors, ...checkGeometry(product)];
+}
+
+// "inventory" (optional) is the parts list printed in the manual: [{"label": "101350", "count": 20}].
+// The manual tool copies it from the manual, and every part number must then appear exactly
+// that many times, which catches a forgotten screw or a dowel too many.
+function checkInventory(product, err) {
+  const inv = product.inventory;
+  if (inv === undefined) return;
+  if (!Array.isArray(inv)) {
+    err('`inventory` must be an array of {"label", "count"}.');
+    return;
+  }
+  const counts = new Map();
+  for (const p of product.parts) if (p.label) counts.set(p.label, (counts.get(p.label) || 0) + 1);
+  const listed = new Set();
+  for (const [i, row] of inv.entries()) {
+    if (typeof row?.label !== 'string' || !row.label || !Number.isInteger(row.count) || row.count < 1) {
+      err(`inventory[${i}]: each row needs a "label" and a whole-number "count".`);
+      continue;
+    }
+    listed.add(row.label);
+    const have = counts.get(row.label) || 0;
+    if (have !== row.count) err(`The manual lists ${row.count} × ${row.label}, but the file has ${have}. Add or remove parts so the counts match.`);
+  }
+  const missing = new Set(product.parts.filter((p) => p.shape !== 'board' && p.label && !listed.has(p.label)).map((p) => p.label));
+  for (const label of missing) err(`Part number ${label} is used but missing from "inventory". Add the count the manual prints for it.`);
 }
 
 // ---- geometry: the finished product should look physically right
@@ -150,6 +178,20 @@ function lowestPoint(p) {
   return Math.min(a[1] - (headEnd ? headR : p.radius) * side, b[1] - p.radius * side);
 }
 
+// A box around a part in the finished product: a board's own box, or the space a piece of
+// hardware's shaft and head take up.
+function bounds(p) {
+  if (p.shape === 'board') return { lo: p.pos.map((x, i) => x - p.size[i] / 2), hi: p.pos.map((x, i) => x + p.size[i] / 2) };
+  const dir = unit(p.dir);
+  const [a, b] = axisEnds(p);
+  const r = p.shape === 'screw' ? p.radius * 2.1 : p.shape === 'nail' ? p.radius * 3 : p.radius;
+  const reach = dir.map((d) => r * Math.sqrt(Math.max(0, 1 - d * d)));
+  return { lo: a.map((x, i) => Math.min(x, b[i]) - reach[i]), hi: a.map((x, i) => Math.max(x, b[i]) + reach[i]) };
+}
+
+const GAP = 0.3; // cm: parts closer than this count as touching
+const touching = (A, B) => A.lo.every((x, i) => x <= B.hi[i] + GAP && B.lo[i] <= A.hi[i] + GAP);
+
 const insideBox = (pt, centre, size) => pt.every((x, i) => Math.abs(x - centre[i]) <= size[i] / 2 + TOL);
 const fmt = (n) => String(Math.round(n * 100) / 100);
 
@@ -167,6 +209,26 @@ function checkGeometry(product) {
   const low = Math.min(...product.parts.map(lowestPoint));
   if (Math.abs(low) > 0.1) {
     problems.push(`The finished product's lowest point is at y = ${fmt(low)} cm, but it should stand on the floor at y = 0. Move every part by ${fmt(-low)} cm in y.`);
+  }
+
+  // Nothing floats: every part is held up by a chain of touching parts that reaches the floor.
+  const boxes = product.parts.map(bounds);
+  const held = new Set();
+  boxes.forEach((b, i) => b.lo[1] <= GAP && held.add(i));
+  const queue = [...held];
+  while (queue.length) {
+    const i = queue.pop();
+    boxes.forEach((b, j) => {
+      if (!held.has(j) && touching(boxes[i], b)) {
+        held.add(j);
+        queue.push(j);
+      }
+    });
+  }
+  const loose = product.parts.filter((p, i) => !held.has(i));
+  if (loose.length) {
+    const named = loose.slice(0, 6).map((p) => p.id).join(', ');
+    problems.push(`${loose.length === 1 ? `${named} floats` : `${loose.length} parts float (${named}${loose.length > 6 ? ', …' : ''})`}: not touching anything that leads down to the floor. Check their positions and sizes against the parts they join, so they meet with no gap.`);
   }
 
   // Hardware ends inside the wood it joins, instead of poking out into the air.

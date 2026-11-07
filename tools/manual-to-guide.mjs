@@ -20,6 +20,10 @@ const repo = path.resolve(here, '..');
 const MODEL = 'claude-opus-5-5';
 const MAX_REPAIRS = 2;
 const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
+// US dollars per million tokens, for the cost line at the end.
+const PRICE = { input: 4, cacheWrite: 5, cacheRead: 0.2, output: 20 };
+const cost = (u) => ((u.input_tokens || 0) * PRICE.input + (u.cache_creation_input_tokens || 0) * PRICE.cacheWrite
+  + (u.cache_read_input_tokens || 0) * PRICE.cacheRead + (u.output_tokens || 0) * PRICE.output) / 1e6;
 
 function parseArgs(argv) {
   const args = { pdf: null, out: null, name: null, effort: 'high' };
@@ -56,6 +60,7 @@ Reply with exactly one JSON object inside a \`\`\`json code fence and nothing af
 - "startFlipped": "x" or "z", only if the manual starts the build upside down.
 - "startPose": {"axis": "x" or "z", "angle": degrees} instead, if the build starts on its side or front. For example {"axis": "z", "angle": -90} is lying on its right side; {"axis": "x", "angle": 90} is lying on its front.
 - "parts", "steps": as below.
+- "inventory": the manual's parts and hardware lists, copied as printed: [{"label": "101350", "count": 20}, ...]. Add up a part number that appears in several bags. Include lettered boards if the manual lists them. Leave out tools, spares and anything only for fixing the product to a wall. Every part number in "parts" must appear here, and the file must contain exactly this many of each.
 - "notes": an array of strings listing every estimate, ambiguity, or manual step you simplified.
 
 # Parts
@@ -92,6 +97,8 @@ Reply with exactly one JSON object inside a \`\`\`json code fence and nothing af
 5. Line hardware up with what it joins: a dowel joining a shelf end to a side panel is centred on the joint face, half in each board. Every dowel's two ends, and every screw's and nail's tip, must end inside wood, so check lengths against board thickness: nothing should poke out of a visible face.
 6. If the manual fits hardware to a part while that part lies on the floor, use "parent". If it builds upside down or on its side, set "startFlipped" or "startPose" and build in that orientation. When the manual turns a sub-assembly over on the floor, add a turn step.
 7. Leave out steps that only fix the product to a wall (drilling, wall plugs). Mention them in "notes".
+8. Many manuals repeat the instructions in other languages. Read one language and ignore the rest.
+9. Every part touches the parts it joins: no gaps between boards that meet, and nothing floating. The checker rejects parts that don't connect down to the floor.
 
 # Example of the format (a different product, written by hand)
 ${example}`;
@@ -150,7 +157,8 @@ async function main() {
   const messages = [{
     role: 'user',
     content: [
-      { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdf.toString('base64') } },
+      // Cached, so the repair rounds read the PDF again at a twentieth of the price.
+      { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdf.toString('base64') }, cache_control: { type: 'ephemeral' } },
       {
         type: 'text',
         text: `Turn this assembly manual into a product file.${args.name ? ` Call the product "${args.name}".` : ''} Read every page before you start, then write the JSON.`,
@@ -162,6 +170,7 @@ async function main() {
   const started = Date.now();
   let product = null;
   let problems = [];
+  let spent = 0;
   for (let attempt = 0; attempt <= MAX_REPAIRS; attempt++) {
     const message = await ask(client, messages, args.effort);
     if (message.stop_reason === 'refusal') throw new Error('Claude declined this request. Try a different manual.');
@@ -175,7 +184,9 @@ async function main() {
       problems = [`The reply wasn't valid JSON: ${e.message}`];
     }
     const u = message.usage;
-    console.log(`  attempt ${attempt + 1}: ${u.input_tokens + (u.cache_read_input_tokens || 0)} tokens in, ${u.output_tokens} out, ${problems.length} problem${problems.length === 1 ? '' : 's'}`);
+    spent += cost(u);
+    const tokensIn = (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
+    console.log(`  attempt ${attempt + 1}: ${tokensIn.toLocaleString()} tokens in, ${u.output_tokens.toLocaleString()} out, $${cost(u).toFixed(2)}, ${problems.length} problem${problems.length === 1 ? '' : 's'}`);
     if (!problems.length) break;
     if (attempt === MAX_REPAIRS) break;
     messages.push({ role: 'assistant', content: echoable(message.content) });
@@ -189,7 +200,7 @@ async function main() {
   const out = args.out || path.join(repo, 'guide/products', `${slug(product.name || path.basename(args.pdf, '.pdf'))}.json`);
   fs.writeFileSync(out, formatProduct(product));
   const rel = path.relative(repo, out);
-  console.log(`\nWrote ${rel}: ${product.parts.length} parts, ${product.steps.length} steps, in ${Math.round((Date.now() - started) / 1000)} s.`);
+  console.log(`\nWrote ${rel}: ${product.parts.length} parts, ${product.steps.length} steps, in ${Math.round((Date.now() - started) / 1000)} s, about $${spent.toFixed(2)}.`);
   if (problems.length) {
     console.log(`\nStill ${problems.length} problem${problems.length === 1 ? '' : 's'} after ${MAX_REPAIRS} fixes. Edit the file by hand:`);
     for (const p of problems) console.log(`  - ${p}`);
