@@ -41,6 +41,10 @@ It can follow what real manuals do:
   pieces out in front of the build, the right face up, and `turn` steps turn them over.
 - **Lower one piece onto another:** `lower` lifts the build and sets it down onto a part.
 - **Embed it in another page:** `?embed` shows just the 3D view with a "Watch it build" button.
+- **Run a user study:** [`study.html`](guide/study.html) compares the paper manual with the 3D
+  guide. Both groups are timed, can tap "Got stuck", and answer the same questions (enjoyment,
+  confidence, ease, plus mistakes and build quality noted by the facilitator). The 3D group's
+  steps are timed too. Results stay on the device, with a summary and a CSV export.
 - **Install it like an app:** on a phone, "Add to Home Screen" opens Kaputle full-screen on a
   list of every guide, and any guide opened once keeps working with no internet.
 
@@ -114,6 +118,7 @@ puts everything back in the box.
 guide/
   index.html, guide.css   the guide page
   library.html            the app's home screen: every guide
+  study.html              the facilitator's page for a user study
   manifest.webmanifest    what a phone needs to install it as an app, with icons/
   sw.js                   keeps the app working offline
   products/               one JSON file per product, and index.json, the list of guides
@@ -131,6 +136,7 @@ guide/
     scene.js, tween.js    the 3D view, and the animation clock
     analytics.js          visit counts on the published site (GoatCounter, no cookies)
     app.js, library.js    offline support and the home screen
+    study.js, study-page.js  user-study mode and its results page
 tools/                    the manual tool, validator, formatter, recorder and local server
 tests/                    end-to-end tests
 ```

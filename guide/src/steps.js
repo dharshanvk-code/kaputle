@@ -7,6 +7,9 @@ import { playStep, prepareStep, unprepareStep, showGhosts, clearGhosts } from '.
 import { fit, overviewBox, frameCurrent } from './camera.js';
 import { render, dismissTip } from './ui.js';
 import { countFinished, countEmbedPlay } from './analytics.js';
+import { studyStepDone, studyBack, studyReplay } from './study.js';
+
+let replaying = false; // a replay goes back and forward again; the study counts it once, as a replay
 
 export async function next() {
   if (G.busy || G.done >= G.product.steps.length) return;
@@ -16,6 +19,7 @@ export async function next() {
   render();
   await playStep(G.done, true);
   G.done++;
+  if (!replaying) studyStepDone(G.done);
   if (G.done === G.product.steps.length && !timing.instant) countFinished(G.product.name);
   await prepareStep(G.done);
   G.busy = false;
@@ -31,6 +35,7 @@ export async function back() {
   render();
   await unprepareStep(G.done); // leaving this step: anything it set out goes back to the pile
   G.done--;
+  if (!replaying) studyBack(G.done);
   render();
   frameCurrent(0.7);
   await playStep(G.done, false);
@@ -56,10 +61,16 @@ export async function jumpTo(target) {
 // Replay the step just done: undo it quickly, then play it again at normal speed.
 export async function replay() {
   if (G.busy || G.done === 0) return;
-  timing.speed = 0.35;
-  await back();
-  timing.speed = 1;
-  await next();
+  studyReplay(G.done);
+  replaying = true;
+  try {
+    timing.speed = 0.35;
+    await back();
+    timing.speed = 1;
+    await next();
+  } finally {
+    replaying = false;
+  }
 }
 
 export async function playAll() {

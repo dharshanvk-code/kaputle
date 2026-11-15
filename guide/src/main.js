@@ -2,7 +2,7 @@
 // (parts with sizes and final positions, plus ordered steps) and builds the 3D scene, the parts
 // pile and the step-by-step animation from that alone.
 import * as THREE from 'three';
-import { $, V3, Q, reduceMotion, PRODUCT_NAME, PRODUCT_URL, EMBED } from './config.js';
+import { $, V3, Q, reduceMotion, PRODUCT_NAME, PRODUCT_URL, EMBED, STUDY } from './config.js';
 import { renderer, scene, camera, controls, canvas, viewDir, resize } from './scene.js';
 import { buildPart, assembledQuat, partExtent, partCentre, absV } from './parts.js';
 import { drillHoles } from './holes.js';
@@ -16,6 +16,7 @@ import { render, updateLabels } from './ui.js';
 import { selectPart, placeInfo, screenPoint } from './info.js';
 import { countView } from './analytics.js';
 import { startApp } from './app.js';
+import { startStudy } from './study.js';
 
 async function start() {
   try {
@@ -137,6 +138,7 @@ async function start() {
     // Tell the page it can swap its placeholder image for this, now the finished product shows.
     if (window.parent !== window) window.parent.postMessage({ kaputle: 'ready' }, '*');
   }
+  if (STUDY && !EMBED) startStudy({ participant: STUDY, condition: '3d', product: PRODUCT_NAME, mount: $('viewport') });
 }
 
 // Handy for debugging, and used by the tests and the video recorder.

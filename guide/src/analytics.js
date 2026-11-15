@@ -1,10 +1,11 @@
 // Visit counts, through GoatCounter: no cookies and nothing that identifies a person. It counts
 // a view of each guide, the first time someone reaches its last step, and, in the embed, the first
 // press of play. It only runs on the published site, so local runs and tests count nothing.
-import { PRODUCT_NAME, EMBED } from './config.js';
+import { PRODUCT_NAME, EMBED, STUDY } from './config.js';
 
 const ENDPOINT = 'https://kaputle.goatcounter.com/count';
-const ON = location.hostname === 'dharshanvk-code.github.io';
+// Study sessions aren't counted, so they don't skew the real visitor numbers.
+const ON = location.hostname === 'dharshanvk-code.github.io' && !STUDY;
 let loaded;
 const once = new Set();
 

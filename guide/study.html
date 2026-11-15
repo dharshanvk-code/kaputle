@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kaputle Study</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#d9531c">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<link rel="stylesheet" href="guide.css">
+</head>
+<body class="library-page">
+<header class="topbar">
+  <a class="brand" href="library.html" title="All guides">
+    <span class="logo" aria-label="Kaputle">Kapu<span class="loose">t</span>le</span>
+    <span class="tag">User study</span>
+  </a>
+</header>
+
+<main class="library study-page">
+  <section id="setup">
+    <h1>Paper manual vs. 3D guide</h1>
+    <p class="lede">Run every session from this device. Each person builds once, with either the paper manual or the 3D guide, and both groups are timed and asked the same questions. Results stay on this device until you download them.</p>
+
+    <form id="newSession" class="study-setup">
+      <label class="study-text">Participant code <input name="participant" required maxlength="20" autocomplete="off"></label>
+      <fieldset class="study-choice">
+        <legend>Instructions they’ll use</legend>
+        <label><input type="radio" name="condition" value="paper" required> Paper manual</label>
+        <label><input type="radio" name="condition" value="3d" required> 3D guide</label>
+      </fieldset>
+      <label class="study-text">Furniture <select name="product" required></select></label>
+      <button type="submit" class="btn primary">Start session</button>
+    </form>
+    <p class="study-help" id="nextHint"></p>
+  </section>
+
+  <section id="paperSession" class="paper-session" hidden>
+    <h1>Building with the paper manual</h1>
+    <p class="lede">Leave this screen open next to them. The timer starts when they tap Start.</p>
+  </section>
+
+  <section id="results">
+    <h2>Results so far</h2>
+    <div class="study-table-wrap"><table class="study-table" id="summary"></table></div>
+    <details>
+      <summary>Every session</summary>
+      <div class="study-table-wrap"><table class="study-table" id="rows"></table></div>
+    </details>
+    <div class="study-actions">
+      <button type="button" class="btn" id="downloadCsv">Download spreadsheet (CSV)</button>
+      <button type="button" class="btn" id="downloadJson">Download full data (JSON)</button>
+      <button type="button" class="btn ghost" id="clearAll">Delete all results</button>
+    </div>
+  </section>
+
+  <section class="study-howto">
+    <h2>Running a fair test</h2>
+    <ol>
+      <li>Use the same piece of furniture for everyone, and take it apart again between sessions.</li>
+      <li>Alternate: first person paper, second person 3D, and so on, so both groups are mixed.</li>
+      <li>Don’t help unless they’re truly stuck. If you do, tap <b>Got stuck</b> for them.</li>
+      <li>Count mistakes as you watch: a part fitted wrong, upside down or in the wrong place, or a step they had to undo.</li>
+      <li>At the end, hand them the device for the questions, then fill in the facilitator part yourself.</li>
+    </ol>
+  </section>
+</main>
+
+<script type="module" src="src/study-page.js"></script>
+</body>
+</html>

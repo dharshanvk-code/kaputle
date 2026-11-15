@@ -14,3 +14,5 @@ export const PRODUCT_URL = `products/${PRODUCT_NAME}.json`;
 export const EMBED = params.has('embed');
 export const EMBED_SPEED = Number(params.get('speed')) || 5;
 if (EMBED) document.documentElement.classList.add('embed');
+// ?study=P03: user-study mode for participant P03 (see study.js and study.html).
+export const STUDY = params.get('study')?.replace(/[^\w-]/g, '').slice(0, 20) || null;

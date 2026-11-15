@@ -5,16 +5,16 @@
 // three.js and the fonts come from versioned CDN addresses that never change, so those come
 // from the cache first. A guide works offline once it has been opened online.
 
-const CACHE = 'kaputle-v1';
+const CACHE = 'kaputle-v2';
 const THREE = 'https://cdn.jsdelivr.net/npm/three@0.160.0/';
 
 // Fetched when the app is installed, so the home screen and the player work offline at once.
 const SHELL = [
-  './', 'index.html', 'library.html', 'guide.css', 'manifest.webmanifest', 'favicon.svg',
+  './', 'index.html', 'library.html', 'study.html', 'guide.css', 'manifest.webmanifest', 'favicon.svg',
   'icons/icon-192.png', 'icons/icon-512.png', 'products/index.json',
   'src/analytics.js', 'src/app.js', 'src/assembly.js', 'src/camera.js', 'src/config.js', 'src/diagram.js',
   'src/holes.js', 'src/info.js', 'src/library.js', 'src/main.js', 'src/parts.js', 'src/pile.js',
-  'src/scene.js', 'src/state.js', 'src/steps.js', 'src/textures.js', 'src/tween.js', 'src/ui.js',
+  'src/scene.js', 'src/state.js', 'src/steps.js', 'src/study.js', 'src/study-page.js', 'src/textures.js', 'src/tween.js', 'src/ui.js',
   `${THREE}build/three.module.js`,
   `${THREE}examples/jsm/controls/OrbitControls.js`,
   `${THREE}examples/jsm/geometries/RoundedBoxGeometry.js`,
