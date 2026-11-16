@@ -1,147 +1,122 @@
 # Kaputle
 
-Interactive 3D assembly guides, built from paper manuals. Every step follows the manual's order, every
-screw and dowel shows the part number printed in the bag, and you can turn the build around, slow
-it down or tap any part to see what it is and where it goes.
+Paper assembly manuals, rebuilt as 3D guides you can actually follow.
+
+Each guide goes through the manual step by step, in the same order, with the same part numbers
+that are printed on the bags in the box. You can spin the build around, replay a step slowly, or
+tap any part to see what it is and where it goes.
 
 **[Try the 8-drawer dresser](https://dharshanvk-code.github.io/kaputle/guide/?product=hemnes)** ·
-[Console table](https://dharshanvk-code.github.io/kaputle/guide/?product=console) ·
+[All guides](https://dharshanvk-code.github.io/kaputle/guide/library.html) ·
 [About the project](https://dharshanvk-code.github.io/)
 
 ![The finished 3D dresser](docs/dresser.jpg)
 
 ## Guides
 
-| Product | From | Parts | Steps |
+| Guide | Built from | Parts | Steps |
 |---|---|---|---|
 | [8-drawer dresser](https://dharshanvk-code.github.io/kaputle/guide/?product=hemnes) | 52-page IKEA HEMNES manual | 497 | 95 |
-| [Console table](https://dharshanvk-code.github.io/kaputle/guide/?product=console) | 8-page IKEA LACK manual | 40 | 11 |
 | [2-drawer chest](https://dharshanvk-code.github.io/kaputle/guide/?product=hemnes-2-drawer) | 32-page IKEA HEMNES manual | 185 | 42 |
+| [Console table](https://dharshanvk-code.github.io/kaputle/guide/?product=console) | 8-page IKEA LACK manual | 40 | 11 |
 | [End table](https://dharshanvk-code.github.io/kaputle/guide/?product=end-table) | 2-page Furinno manual | 30 | 10 |
-| [Bookshelf](https://dharshanvk-code.github.io/kaputle/guide/?product=bookshelf) | A hand-written example | 32 | 10 |
+| [Bookshelf](https://dharshanvk-code.github.io/kaputle/guide/?product=bookshelf) | A small example I wrote by hand | 32 | 10 |
 
-The 2-drawer chest and the end table were drafted by the [manual tool](#turning-a-manual-into-a-guide)
-and published as it wrote them, with no hand edits.
+The 2-drawer chest and the end table were made by the manual tool (below) and published exactly
+as it wrote them.
+
+On a phone you can add Kaputle to your home screen. It then opens like an app, and any guide
+you've opened once keeps working without internet.
 
 ## How it works
 
-Nothing is hand-animated. The player in [`guide/`](guide) reads one product file that lists every
-part (its shape, size, material and position in the finished product) and every step in order. From
-that alone it builds the 3D parts, lays out the box contents, works out where the pre-drilled holes
-are, and animates each step.
+Nothing is animated by hand. Each guide is a single JSON file that lists every part (its shape,
+size, material and where it sits in the finished piece) and every step in order. The player in
+[`guide/`](guide) builds the 3D parts from that file, lays out the box contents, works out where
+the pre-drilled holes go, and animates each step.
 
 ![The dresser half built, with its drawers being made on the floor](docs/dresser-building.jpg)
 
-It can follow what real manuals do:
-
-- **Build in any orientation:** start upside down or on its side, and turn the whole build over or
-  stand it up with `flip` steps.
-- **Work on the floor first:** fit hardware to a part before it goes in (`parent`), nested as deep
-  as needed, such as a drawer side with its dowels fitted to a drawer front. The player sets those
-  pieces out in front of the build, the right face up, and `turn` steps turn them over.
-- **Lower one piece onto another:** `lower` lifts the build and sets it down onto a part.
-- **Embed it in another page:** `?embed` shows just the 3D view with a "Watch it build" button.
-- **Run a user study:** [`study.html`](guide/study.html) compares the paper manual with the 3D
-  guide. Both groups are timed, can tap "Got stuck", and answer the same questions (enjoyment,
-  confidence, ease, plus mistakes and build quality noted by the facilitator). The 3D group's
-  steps are timed too. Results stay on the device, with a summary and a CSV export.
-- **Install it like an app:** on a phone, "Add to Home Screen" opens Kaputle full-screen on a
-  list of every guide, and any guide opened once keeps working with no internet.
-
-### The product file
+Real manuals do awkward things, so the player handles those too: building upside down or on its
+side and flipping it over halfway, fitting hardware to a panel on the floor before it goes in,
+and lowering a half-built frame onto a part. Here's a piece of the console table's file:
 
 ```json
 {
   "name": "Console table",
-  "spec": "Black-brown · built from an 8-page paper manual · sizes estimated",
   "startFlipped": "x",
   "parts": [
-    {"id": "top", "name": "Tabletop", "label": "", "shape": "board", "size": [140, 5, 35], "pos": [0, 72.8, 0], "material": "blackbrown"},
+    {"id": "top", "name": "Tabletop", "shape": "board", "size": [140, 5, 35], "pos": [0, 72.8, 0], "material": "blackbrown"},
     {"id": "studL1", "name": "Cam stud", "label": "114928", "shape": "screw", "radius": 0.3, "length": 4, "pos": [-67.5, 67.8, -6], "dir": [0, 1, 0], "material": "steel", "parent": "top"}
   ],
   "steps": [
-    {"manual": 2, "title": "Screw the cam studs into the tabletop", "text": "Screw the four cam studs into the holes near each end of the tabletop, with the tabletop lying flat.", "tool": "Screwdriver", "parts": ["studL1", "studL2", "studR1", "studR2"], "spin": 3}
+    {"manual": 2, "title": "Screw the cam studs into the tabletop", "text": "Screw the four cam studs into the holes near each end of the tabletop.", "tool": "Screwdriver", "parts": ["studL1", "studL2", "studR1", "studR2"], "spin": 3}
   ]
 }
 ```
 
-An excerpt from [`console.json`](guide/products/console.json). Positions are in centimetres in the
-finished, upright product (x left to right, y up, z towards the front). [`tools/validate-product.mjs`](tools/validate-product.mjs) documents every field by
-checking it.
+Sizes are in centimetres, measured in the finished piece standing upright. Every field is
+described by the checks in [`tools/validate-product.mjs`](tools/validate-product.mjs).
 
 ## Turning a manual into a guide
 
-[`tools/manual-to-guide.mjs`](tools/manual-to-guide.mjs) sends a manual PDF to Claude, which drafts
-the product file. The draft is checked against the format, and any problems go back to Claude to fix.
+Writing these files by hand takes a long time, so [`tools/manual-to-guide.mjs`](tools/manual-to-guide.mjs)
+does it from the PDF. It sends the manual to Claude, checks the draft it gets back, and sends any
+problems back to be fixed.
 
 ```sh
 export ANTHROPIC_API_KEY=...
 npm run manual -- ~/Downloads/manual.pdf --name "Nightstand"
 ```
 
-The check also copies the manual's printed parts list and makes sure every part number appears
-exactly that many times, that nothing floats in mid-air, and that no hardware pokes out through the
-wood. Each round reports every problem at once, and the PDF is cached so repair rounds cost little.
-At the end the tool prints the time taken and the cost, and lists everything it had to estimate
-(manuals rarely give measurements), so you know what to check.
-Repeated hardware can be written once with a list of positions (`copies`), which the tool expands
-before checking, so long manuals fit in one reply. `--effort low|medium|high|xhigh|max` trades speed
-for care (default `high`).
-The dresser is big enough that its file is written by a script instead:
+The checks catch the mistakes that matter most: a part count that doesn't match the parts list
+printed in the manual, a part floating in mid-air, or a screw poking out through the wood. When
+it's done, the tool tells you how long it took, what it cost, and which sizes it had to guess.
+`--effort` (`low` to `max`, default `high`) trades speed for care.
+
+The dresser is too big to draft in one go, so its file is written by a script instead:
 [`tools/products/hemnes.mjs`](tools/products/hemnes.mjs).
 
-## Development
+## User study
 
-Needs Node 20 or later. It's a static site with no build step: three.js loads from a CDN.
+[`study.html`](https://dharshanvk-code.github.io/kaputle/guide/study.html) is for testing whether
+the guides actually help. One group builds with the paper manual and another with the 3D guide.
+Both are timed, can tap "Got stuck", and answer the same questions afterwards about how much they
+enjoyed it and how confident they felt, while the facilitator notes mistakes and whether it was
+built right. Results stay on the device and can be downloaded as a spreadsheet.
+
+## Running it locally
+
+You need Node 20 or later. There's no build step; three.js loads from a CDN.
 
 ```sh
 npm install
-npm start          # serves the guide at http://localhost:8000/guide/
-npm test           # checks every product file, then plays every guide in a headless browser
+npm start          # http://localhost:8000/guide/
+npm test           # checks every guide file, then plays every guide in a headless browser
 npm run lint
 ```
 
-The tests play every step of every guide forward and back, and check that nothing passes through
-the floor, that every part ends exactly where its product file says, and that undoing every step
-puts everything back in the box.
+The tests play every guide forwards and backwards and make sure nothing goes through the floor,
+every part ends up exactly where its file says, and undoing everything puts it all back in the box.
 
-| Script | What it does |
-|---|---|
-| `npm run manual -- <pdf>` | Drafts a product file from a manual PDF |
-| `npm run build:hemnes` | Rewrites the dresser's product file |
-| `npm run build:library` | Updates the app's list of guides and their pictures, after adding a guide |
-| `npm run record -- <product>` | Records a time-lapse video of a guide building itself (needs ffmpeg) |
+Other scripts:
 
-## Project layout
+- `npm run build:library` updates the list of guides and their pictures. Run it after adding a guide.
+- `npm run build:hemnes` rewrites the dresser's file.
+- `npm run record -- <guide>` records a time-lapse video of a guide building itself (needs ffmpeg).
+
+## What's where
 
 ```
-guide/
-  index.html, guide.css   the guide page
-  library.html            the app's home screen: every guide
-  study.html              the facilitator's page for a user study
-  manifest.webmanifest    what a phone needs to install it as an app, with icons/
-  sw.js                   keeps the app working offline
-  products/               one JSON file per product, and index.json, the list of guides
-  images/                 a picture of each finished product, for the list
-  src/
-    main.js               loads a product and starts the player
-    state.js              the shared state: parts, current step, what's set out on the floor
-    assembly.js           moving parts: setting out, fitting, flipping, turning
-    steps.js              next, back, jump, replay, play all
-    camera.js             framing each step
-    ui.js                 the step card, step list and labels
-    info.js, diagram.js   the tap-a-part card and its picture
-    parts.js, holes.js    building a part's model and its drilled holes
-    pile.js               laying out the box contents
-    scene.js, tween.js    the 3D view, and the animation clock
-    analytics.js          visit counts on the published site (GoatCounter, no cookies)
-    app.js, library.js    offline support and the home screen
-    study.js, study-page.js  user-study mode and its results page
-tools/                    the manual tool, validator, formatter, recorder and local server
-tests/                    end-to-end tests
+guide/          the site: the guide page, the list of guides, the study page, and offline support
+  products/     one JSON file per guide, plus index.json, the list
+  src/          the player, split by job (3D scene, parts, steps, camera, step card and so on)
+tools/          the manual tool, the checks, and helper scripts
+tests/          browser tests
+docs/           pictures for this README
 ```
 
-Not affiliated with IKEA or Furinno. The manuals are theirs; the 3D models and guides are original, with sizes
-estimated from the drawings.
+Not affiliated with IKEA or Furinno. The manuals are theirs; the 3D models and guides are
+original, with sizes estimated from the drawings.
 
 © 2026 Dharshan Vetrivelan. All rights reserved.

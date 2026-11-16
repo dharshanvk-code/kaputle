@@ -1,5 +1,5 @@
-/* Layout: the same full-height workbench as the flashlight. 3D room on the left (top on
-   phones), the instruction card and step list on the right (bottom on phones). */
+/* Layout: a full-height workbench. The 3D room is on the left (on top on phones), and the
+   instruction card and step list are on the right (underneath on phones). */
 :root {
   --bg: #eceff2;
   --panel: #ffffff;
